@@ -4,7 +4,7 @@ import os, sys, argparse
 import pandas as pd
 import numpy as np
 
-programVersion = '1.0'
+programVersion = '1.1'
 lastModified = '16-01-2021'
 
 #
@@ -236,21 +236,7 @@ def getCreditAccountGoods (taxKey):
 
 
 # The following modificactions are made to the dataframe containing the GDPdU Export
-# 1.) Rename a few columns to simplify access
-# 2.) Create columns SollKonto und HabenKonto
-# GDPdU Dokumentation:
-# Alle Beträge in Feld Umsatz (ohne Soll/Haben-Kz) sind positiv
-# und mit einem Soll/Haben-Kennzeichen versehen.
-# Das Soll/Haben-Kennzeichen gibt die Richtung der Buchung an und
-# bezieht sich auf das Konto, das im Feld Konto angegeben wir.
-#   S = Soll
-#   H = Haben
-# Wenn in dieser Spalte ein "S" ausgewiesen wird erfolgt die Buchung
-# in der Systematik Konto - Gegenkonto "Soll an Haben".
-# Die Alternative wäre den Betrag in Transaktionen mit
-# 'Soll/Haben-Kennzeichen'=='S zu invertieren.
-#    da_soll['Umsatz'] = da_soll['Umsatz'].apply(lambda x: x*-1)
-# Wir möchten aber Sammelbuchungen für Soll und Haben Transaktionen getrennt erzeugen.
+
 
 def preprocessDataframe(da):
 
@@ -405,25 +391,26 @@ def preprocessDataframe(da):
 # Wenn das Flag writeTX gesetzt ist (durch die verbose option)
 # wird auch eine CSV Datei mit den selektierten Transaktionen geschrieben.
 
-def printSaldenPerKonto(infile, heading, df, bookingYear, standardText, sReferenz, writeTX=False):
+def printSaldenPerKonto(infile, heading, df, writeTX=False):
 
     if writeTX:
         newTX = pd.DataFrame() #creates a new dataframe that's empty
 
-    is_haben = df['Soll/Haben']=='H'
-    dfh = df[is_haben]
+    mask = df['Soll/Haben'] == 'H'
+    dfh = df[mask].copy()
+    print("Gesamt Anz. Haben Transaktionen\t {:>8d}".format( dfh.shape[0]))
 
-    uniqueHKonto = dfh['Gegenkonto'].unique().to_numpy()
+    uniqueHKonto = dfh['Gegenkonto'].unique()
     uniqueHKonto = np.sort(uniqueHKonto)
 
     newHDF = pd.DataFrame() #creates a new dataframe that's empty
 
     for eKto in uniqueHKonto:
         is_eKto = dfh['Gegenkonto']==eKto
-        df_eKto = dfh[is_eKto]
+        df_eKto = dfh[is_eKto].copy()
         if writeTX:
             newTX = newTX.append(df_eKto)
-        df_salden = df_eKto.groupby('Konto').agg({'Umsatz Br.': "sum",'Datum' : [min, max] }).reset_index()
+        df_salden = df_eKto.groupby('Konto').agg({'Umsatz Br.': "sum",'DateTime' : [min, max] }).reset_index()
 
         if not df_salden.empty:
             print("\n###### Haben-Sammelbuchungen Konto {}\n".format(eKto))
@@ -434,20 +421,21 @@ def printSaldenPerKonto(infile, heading, df, bookingYear, standardText, sReferen
             print("\n{: >10}  \t{}\t\t{:.2f}".format('Summe', eKto, total))
             newHDF = newHDF.append(df_salden) # Gegenkonto soll erhalten bleiben!
 
-    is_soll = df['Soll/Haben-Kennzeichen']=='S'
-    dfs = df[is_soll]
+    mask = df['Soll/Haben'] == 'S'
+    dfs = df[mask].copy()
+    print("Gesamt Anz. Soll Transaktionen\t {:>8d}".format( dfs.shape[0]))
 
-    uniqueSKonto = dfs['SollKonto'].unique().to_numpy()
+    uniqueSKonto = dfs['Konto'].unique()
     uniqueSKonto = np.sort(uniqueSKonto)
 
     newSDF = pd.DataFrame() #creates a new dataframe that's empty
 
     for eKto in uniqueHKonto:
         is_eKto = dfs['Konto']==eKto
-        df_eKto = dfs[is_eKto]
+        df_eKto = dfs[is_eKto].copy()
         if writeTX:
             newTX = newTX.append(df_eKto)
-        df_salden = df_eKto.groupby('Gegenkonto').agg({'Umsatz Br.': "sum",'Datum' : [min, max] }).reset_index()
+        df_salden = df_eKto.groupby('Gegenkonto').agg({'Umsatz Br.': "sum",'DateTime' : [min, max] }).reset_index()
 
         if not df_salden.empty:
             print("\n###### Soll-Sammelbuchungen Konto {}\n".format(eKto))
@@ -466,44 +454,25 @@ def printSaldenPerKonto(infile, heading, df, bookingYear, standardText, sReferen
 
 #   Wir erzeugen eine Spalte Datum
 
+    print(ndf.head(10))
 
-    ndf['Datum'] = ndf['Belegdatum max'].str[:2] + '.' + ndf['Belegdatum max'].str[2:] + '.' + bookingYear
+#    ndf['Datum'] = ndf['Datum max'].str[:2] + '.' + ndf['Datum max'].str[2:]
+    ndf['Datum'] = ndf['DateTime max']
 
-# create a column with dtype datetime64
-
-    ndf['DateTime'] = pd.to_datetime(ndf['Datum'], format='%d.%m.%Y')
-
-    sText = " " + standardText.split(None, 1)[1] # spit the string and use the second part
-    ndf['Text'] = "Sammelbuchung" + sText
+    ndf['Text'] = "Sammelbuchung"
 
 # create a column with tax rate
 
     ndf['Steuer'] = '-' # add the new column and set all rows to that value
 
-# create column with reference to GDPdU Input
-
-    ndf['Referenz'] = sReferenz
-
 # drop columns that are no longer needed
 
-    ndf.drop('Belegdatum max', axis=1, inplace=True)
-    ndf.drop('Belegdatum min', axis=1, inplace=True)
+    ndf.drop('DateTime max', axis=1, inplace=True)
+    ndf.drop('DateTime min', axis=1, inplace=True)
 
 # rename columns
 
-    ndf = ndf.rename({"Umsatz sum": "Betrag"}, errors="raise", axis='columns')
-
-# create text and tax tax rate for income accounts
-
-    dTaxProSaldo = { '4300': "USt7", '4301': "USt7", '4400': "USt19", '4401': "USt19" } # vor 30.06.2020 und nach 31.12.2020
-
-    iAccounts = ['4300', '4400', '4301', '4401']
-
-    for eKto in iAccounts:
-        ndf.loc[ndf['Konto'] == eKto, 'St-SL'] = dTaxProSaldo[eKto]
-        ndf.loc[ndf['Konto'] == eKto, 'Text'] = "Umsatz " + dTaxProSaldo[eKto] + sText + " (Soll)"
-        ndf.loc[ndf['Gegenkonto'] == eKto, 'St-SL'] = dTaxProSaldo[eKto]
-        ndf.loc[ndf['Gegenkonto'] == eKto, 'Text'] = "Umsatz " + dTaxProSaldo[eKto] + sText + " (Haben)"
+    ndf = ndf.rename({"Umsatz Br. sum": "Betrag"}, errors="raise", axis='columns')
 
     writeCSV(infile, '_Sammelbuchungen' + heading, ndf)
     if writeTX:
@@ -538,8 +507,8 @@ def main():
         dfp = preprocessDataframe(df)
         writeCSV(args.file, '_' + 'Import', dfp)
 
-#        heading = 'All'
-#        printSaldenPerKonto(args.file, heading, dfp, wJahr, sBuchungsText, sReferenz, args.verbose)
+        heading = 'All'
+        printSaldenPerKonto(args.file, heading, dfp, args.verbose)
     else:
         print ("\n###### Analyse mit Filtern:\n")
         heading = 'Belegdatum_' + args.day
@@ -548,7 +517,7 @@ def main():
         dfp = preprocessDataframe(df)
         writeCSV(args.file, '_' + 'Import_' + 'args.day', dfp)
 
-#        printSaldenPerKonto(args.file, heading, dfp, wJahr, sBuchungsText, sReferenz, args.verbose)
+        printSaldenPerKonto(args.file, heading, dfp, args.verbose)
 
     print("\n###### Programm wurde normal beendet.\n")
 
