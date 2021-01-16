@@ -1,0 +1,10 @@
+#########################
+# .gitignore file for macOS python projects
+#
+
+#####
+# macOS temporary files that should never be committed
+#
+
+.DS_Store
+.Trashes
