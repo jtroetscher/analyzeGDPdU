@@ -59,6 +59,11 @@ analyzeGDPdU is expecting the following formats to be used in the input file
 Note: Since the checkout program runs on Microsoft Windows,
 some formats depend on the global Windows settings on the computer where the export is created.
 
+Note: Text fields are exported unquoted. This bears the risk that the text
+can contain characters that are (mis-)interpreted as column separators.
+In the 2018 export we found two records out of 60.000 where this was the case.
+The field "Produkt" contained a text that was entered manually!
+
 #### sample lines of the GDPdU_export files
 
 ```
@@ -128,7 +133,7 @@ in the posting follows and the positive amount in `Umsatz Br.` is preserved.
 ## debit account (Konto)
 
 The debit account for each record is always set to `1600`
-which is the standard account for the cash register in account plan SKr 04 (abridged)
+which is the standard account for the cash register in account plan SKR04.
 
 The export data does not contain information to distinguish between cash payment and bank transfer.
 
@@ -143,9 +148,12 @@ in column `MwSt-Satz` and  value taken from the following dictionary
 
 ```
 dCAGoods = {
-    '0': '4000',       # Umsatzsteuerfrei
-    '7': '4300',    # Umsatzsteuer 7%
-    '19': '4400'   # Umsatzsteuer 19%
+    '-': '4000',       # Umsatzsteuerfrei
+    '50': '4000',      # Umsatzsteuerfrei
+    'USt5': '4300',    # Umsatzsteuer 5%
+    'USt7': '4300',    # Umsatzsteuer 7%
+    'USt16': '4400',   # Umsatzsteuer 16%
+    'USt19': '4400'    # Umsatzsteuer 19%
 }
 ```
 
@@ -157,9 +165,12 @@ in column `MwSt-Satz` and  value taken from the following dictionary
 
 ```
 dCAService = {
-    '0': '4001',    # Umsatzsteuerfrei
-    '7': '4301',    # Umsatzsteuer 7%
-    '19': '4401'   # Umsatzsteuer 19%
+    '-': '4001',       # Umsatzsteuerfrei
+    '50': '4001',      # Umsatzsteuerfrei
+    'USt5': '4301',    # Umsatzsteuer 5%
+    'USt7': '4301',    # Umsatzsteuer 7%
+    'USt16': '4401',   # Umsatzsteuer 16%
+    'USt19': '4401'    # Umsatzsteuer 19%
 }
 ```
 
