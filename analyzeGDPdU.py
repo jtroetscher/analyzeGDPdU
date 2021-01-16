@@ -55,275 +55,31 @@ incomeAccounts = ['4200', '4300', '4400']
 
 # Datenformat des DATEV Exports
 
-dtypeDATEV = {'Umsatz (ohne Soll/Haben-Kz)': "float64",
-    'Soll/Haben-Kennzeichen': "string",
-    'WKZ Umsatz': "string",
-    'Kurs': "string",
-    'Basis-Umsatz': "string",
-    'WKZ Basis-Umsatz': "string",
-    'Konto': "string",
-    'Gegenkonto (ohne BU-Schlüssel)': "string",
-    'BU-Schlüssel': "string",
-    'Belegdatum': "string",
-    'Belegfeld 1': "string", 'Belegfeld 2': "string",
-    'Skonto': "string",
-    'Buchungstext': "string",
-    'Postensperre': "string",
-    'Diverse Adressnummer': "string",
-    'Geschäftspartnerbank': "string",
-    'Sachverhalt': "string",
-    'Zinssperre': "string",
-    'Beleglink': "string",
-    'Beleginfo - Art 1': "string", 'Beleginfo - Inhalt 1': "string",
-    'Beleginfo - Art 2': "string", 'Beleginfo - Inhalt 2': "string",
-    'Beleginfo - Art 3': "string", 'Beleginfo - Inhalt 3': "string",
-    'Beleginfo - Art 4': "string", 'Beleginfo - Inhalt 4': "string",
-    'Beleginfo - Art 5': "string", 'Beleginfo - Inhalt 5': "string",
-    'Beleginfo - Art 6': "string", 'Beleginfo - Inhalt 6': "string",
-    'Beleginfo - Art 7': "string", 'Beleginfo - Inhalt 7': "string",
-    'Beleginfo - Art 8': "string", 'Beleginfo - Inhalt 8': "string",
-    'KOST1 - Kostenstelle': "string",
-    'KOST2 - Kostenstelle': "string",
-    'Kost-Menge': "string",
-    'EU-Land u. UStID': "string", 'EU-Steuersatz': "string",
-    'Abw. Versteuerungsart': "string",
-    'Sachverhalt L+L': "string",
-    'Funktionsergänzung L+L': "string",
-    'BU 49 Hauptfunktionstyp': "string",
-    'BU 49 Hauptfunktionsnummer': "string",
-    'BU 49 Funktionsergänzung': "string",
-    'Zusatzinformation - Art 1': "string", 'Zusatzinformation- Inhalt 1': "string",
-    'Zusatzinformation - Art 2': "string", 'Zusatzinformation- Inhalt 2': "string",
-    'Zusatzinformation - Art 3': "string", 'Zusatzinformation- Inhalt 3': "string",
-    'Zusatzinformation - Art 4': "string", 'Zusatzinformation- Inhalt 4': "string",
-    'Zusatzinformation - Art 5': "string", 'Zusatzinformation- Inhalt 5': "string",
-    'Zusatzinformation - Art 6': "string", 'Zusatzinformation- Inhalt 6': "string",
-    'Zusatzinformation - Art 7': "string", 'Zusatzinformation- Inhalt 7': "string",
-    'Zusatzinformation - Art 8': "string", 'Zusatzinformation- Inhalt 8': "string",
-    'Zusatzinformation - Art 9': "string", 'Zusatzinformation- Inhalt 9': "string",
-    'Zusatzinformation - Art 10': "string", 'Zusatzinformation- Inhalt 10': "string",
-    'Zusatzinformation - Art 11': "string", 'Zusatzinformation- Inhalt 11': "string",
-    'Zusatzinformation - Art 12': "string", 'Zusatzinformation- Inhalt 12': "string",
-    'Zusatzinformation - Art 13': "string", 'Zusatzinformation- Inhalt 13': "string",
-    'Zusatzinformation - Art 14': "string", 'Zusatzinformation- Inhalt 14': "string",
-    'Zusatzinformation - Art 15': "string", 'Zusatzinformation- Inhalt 15': "string",
-    'Zusatzinformation - Art 16': "string", 'Zusatzinformation- Inhalt 16': "string",
-    'Zusatzinformation - Art 17': "string", 'Zusatzinformation- Inhalt 17': "string",
-    'Zusatzinformation - Art 18': "string", 'Zusatzinformation- Inhalt 18': "string",
-    'Zusatzinformation - Art 19': "string", 'Zusatzinformation- Inhalt 19': "string",
-    'Zusatzinformation - Art 20': "string", 'Zusatzinformation- Inhalt 20': "string",
-    'Stück': "string",
-    'Gewicht': "string",
-    'Zahlweise': "string",
-    'Forderungsart': "string",
-    'Veranlagungsjahr': "string",
-    'Zugeordnete Fälligkeit': "string",
-    'Skontotyp': "string",
-    'Auftragsnummer': "string",
-    'Buchungstyp': "string",
-    'USt-Schlüssel(Anzahlungen)': "string",
-    'EU-Mitgliedstaat(Anzahlungen)': "string",
-    'Sachverhalt L+L(Anzahlungen)': "string",
-    'EU-Steuersatz(Anzahlungen)': "string",
-    'Erlöskonto(Anzahlungen)': "string",
-    'Herkunft-Kz': "string",
-    'Leerfeld': "string",
-    'KOST-Datum': "string",
-    'SEPA-Mandatsreferenz': "string",
-    'Skontosperre': "string",
-    'Gesellschaftername': "string",
-    'Beteiligtennummer': "string",
-    'Identifikationsnummer': "string",
-    'Zeichnernummer': "string",
-    'Postensperre bis': "string",
-    'Bezeichnung SoBil-Sachverhalt': "string",
-    'Kennzeichen SoBil-Buchung': "string",
-    'Festschreibung': "string",
-    'Leistungsdatum': "string",
-    'Datum Zuord.Steuerperiode': "string"}
-
-# Inhalt des DATEV Headers
-#
-# A = DATEV-Format (DTVF - von DATEV erzeugt, EXTF Fremdprogramm)
-# B = Version des DATEV-Formats (141 bedeutet 1.41, aktuell ist 510 = 5.10; hat nichts mit der KARE-Version zu tun)
-# C = Datenkategorie (21 = Buchungsstapel, 67 = Buchungstextkonstanten, 16 = Debitoren/Kreditoren, 20 = Kontenbeschriftungen usw.)
-# D = Formatname (Buchungsstapel, Buchungstextkonstanten, Debitoren/Kreditoren, Kontenbeschriftungen usw.)
-# E = Formatversion (bezogen auf Formatname)
-# F = erzeugt am
-# G = importiert am
-# H = Herkunft (z. B. RE = wurde von KARE erzeugt)
-# I = exportiert von
-# J = importiert von
-# K = Beraternummer
-# L = Mandantennummer
-# M = Wirtschaftsjahresbeginn
-# N = Sachkontenlänge
-# O = Datum Beginn Buchungsstapel
-# P = Datum Ende Buchungsstapel
-# Q = Bezeichnung (Vorlaufname, z. B. Buchungsstapel)
-# R = Diktatkürzel
-# S = Buchungstyp (bei Buchungsstapel = 1)
-# T = Rechnungslegungszweck
-# U = Festschreibung
-# V = WKZ
-
-dtypeDATEVHeader = {
-    'DATEV-Format': "string",                # "EXTF"
-    'Version': "int64",                      # 510
-    'Datenkategorie': "int64",               # 21
-    'Formatname': "string",                  # "Buchungsstapel"
-    'Formatversion': "int64",                # 7
-    'erzeugt am': "int64",                   # 20201105070305019
-    'importiert am': "string",               # ""
-    'Herkunft': "string",                    # ""
-    'exportiert von': "string",              # "enforePOS"
-    'importiert von': "string",              # ""
-    'Beraternummer': "int64",                # 36410
-    'Mandantennummer': "int64",              # 4047
-    'Wirtschaftsjahresbeginn': "int64",      # 20200101
-    'Sachkontenlänge': "int64",              # 4
-    'Datum Beginn Buchungsstapel': "int64",  # 20200501
-    'Datum Ende Buchungsstapel': "int64",    # 20200531
-    'Bezeichnung': "string",                 # "Rechnungen Mai 2020"
-    'Diktatkürzel': "string",                # "N4"
-    'Buchungstyp': "int64",                  # 1
-    'Rechnungslegungszweck': "int64",        # 0
-    'Festschreibung': "int64",               # 1
-    'WKZ': "string"                          # "EUR"
-
+dtypeGDPdU_KI = {
+    'Bon_Nummer': "string",
+    'Datum': "string",
+    'Uhrzeit': "string",
+    'Umsatz Br.': "float64",
+    'Anzahl': "string",
+    'Produkt': "string",
+    'Einzel VK Br.': "float64",
+    'MwSt-Satz': "string",
+    'MwSt': "float64",
+    'Dst/Ware': "string"
 }
 
 dRequiredFields = {
-    'Umsatz (ohne Soll/Haben-Kz)': "float64",
-    'Soll/Haben-Kennzeichen': "string",
-#    'WKZ Umsatz': "string",
-#    'Kurs': "string",
-#    'Basis-Umsatz': "string",
-#    'WKZ Basis-Umsatz': "string",
-    'Konto': "string",
-    'Gegenkonto (ohne BU-Schlüssel)': "string",
-#    'BU-Schlüssel': "string",
-    'Belegdatum': "string",
-    'Belegfeld 1': "string",  # Coupon Information
-#    'Belegfeld 2': "string",
-#    'Skonto': "string",
-    'Buchungstext': "string",
-#    'Postensperre': "string",
-#    'Diverse Adressnummer': "string",
-#    'Geschäftspartnerbank': "string",
-#    'Sachverhalt': "string",
-#    'Zinssperre': "string",
-#    'Beleglink': "string",
-#    'Beleginfo - Art 1': "string",     # Buchungstyp
-    'Beleginfo - Inhalt 1': "string",  # [Umsatz, Gutschein, ]
-#    'Beleginfo - Art 2': "string",     # Verkaufskategorie
-#    'Beleginfo - Inhalt 2': "string",  # [SPA, Leckeres aus unserer Küche, ...]
-#    'Beleginfo - Art 3': "string",     # Produkt
-    'Beleginfo - Inhalt 3': "string",   # [Pommes Frites, ...]
-#    'Beleginfo - Art 4': "string",     # Menge
-    'Beleginfo - Inhalt 4': "string",   # [1,2,...]
-#    'Beleginfo - Art 5': "string",     # Artikelnummer
-#    'Beleginfo - Inhalt 5': "string",  # (leer da wir keine vergeben haben )
-#    'Beleginfo - Art 6': "string",     # Gutschein
-    'Beleginfo - Inhalt 6': "string",   # [9910009058654, ...]
-#    'Beleginfo - Art 7': "string",     # EAN
-#    'Beleginfo - Inhalt 7': "string",  # (leer da wir keine vergeben haben )
-#    'Beleginfo - Art 8': "string",     # Zugeh.Rechnung;
-    'Beleginfo - Inhalt 8': "string",  # [2020/3740, ...]
-#    'KOST1 - Kostenstelle': "string",
-#    'KOST2 - Kostenstelle': "string",
-#    'Kost-Menge': "string",
-#    'EU-Land u. UStID': "string",
-#    'EU-Steuersatz': "string",
-#    'Abw. Versteuerungsart': "string",
-#    'Sachverhalt L+L': "string",
-#    'Funktionsergänzung L+L': "string",
-#    'BU 49 Hauptfunktionstyp': "string",
-#    'BU 49 Hauptfunktionsnummer': "string",
-#    'BU 49 Funktionsergänzung': "string",
-#    'Zusatzinformation - Art 1': "string",
-#    'Zusatzinformation- Inhalt 1': "string",
-#    'Zusatzinformation - Art 2': "string",
-#    'Zusatzinformation- Inhalt 2': "string",
-#    'Zusatzinformation - Art 3': "string",
-    'Zusatzinformation- Inhalt 3': "string", # Coupon Information
-#    'Zusatzinformation - Art 4': "string",
-#    'Zusatzinformation- Inhalt 4': "string",
-#    'Zusatzinformation - Art 5': "string",
-#    'Zusatzinformation- Inhalt 5': "string",
-#    'Zusatzinformation - Art 6': "string",
-#    'Zusatzinformation- Inhalt 6': "string",
-#    'Zusatzinformation - Art 7': "string",
-#    'Zusatzinformation- Inhalt 7': "string",
-#    'Zusatzinformation - Art 8': "string", '
-#    Zusatzinformation- Inhalt 8': "string",
-#    'Zusatzinformation - Art 9': "string",
-#    'Zusatzinformation- Inhalt 9': "string",
-#    'Zusatzinformation - Art 10': "string",
-#    'Zusatzinformation- Inhalt 10': "string",
-#    'Zusatzinformation - Art 11': "string",
-#    'Zusatzinformation- Inhalt 11': "string",
-#    'Zusatzinformation - Art 12': "string",
-#    'Zusatzinformation- Inhalt 12': "string",
-#    'Zusatzinformation - Art 13': "string",
-#    'Zusatzinformation- Inhalt 13': "string",
-#    'Zusatzinformation - Art 14': "string",
-#    'Zusatzinformation- Inhalt 14': "string",
-#    'Zusatzinformation - Art 15': "string",
-#    'Zusatzinformation- Inhalt 15': "string",
-#    'Zusatzinformation - Art 16': "string",
-#    'Zusatzinformation- Inhalt 16': "string",
-#    'Zusatzinformation - Art 17': "string",
-#    'Zusatzinformation- Inhalt 17': "string",
-#    'Zusatzinformation - Art 18': "string",
-#    'Zusatzinformation- Inhalt 18': "string",
-#    'Zusatzinformation - Art 19': "string",
-#    'Zusatzinformation- Inhalt 19': "string",
-#    'Zusatzinformation - Art 20': "string",
-#    'Zusatzinformation- Inhalt 20': "string",
-#    'Stück': "string",
-#    'Gewicht': "string",
-#    'Zahlweise': "string",
-#    'Forderungsart': "string",
-#    'Veranlagungsjahr': "string",
-#    'Zugeordnete Fälligkeit': "string",
-#    'Skontotyp': "string",
-#    'Auftragsnummer': "string",
-#    'Buchungstyp': "string",
-#    'USt-Schlüssel(Anzahlungen)': "string",
-#    'EU-Mitgliedstaat(Anzahlungen)': "string",
-#    'Sachverhalt L+L(Anzahlungen)': "string",
-#    'EU-Steuersatz(Anzahlungen)': "string",
-#    'Erlöskonto(Anzahlungen)': "string",
-#    'Herkunft-Kz': "string",
-#    'Leerfeld': "string",
-#    'KOST-Datum': "string",
-#    'SEPA-Mandatsreferenz': "string",
-#    'Skontosperre': "string",
-#    'Gesellschaftername': "string",
-#    'Beteiligtennummer': "string",
-#    'Identifikationsnummer': "string",
-#    'Zeichnernummer': "string",
-#    'Postensperre bis': "string",
-#    'Bezeichnung SoBil-Sachverhalt': "string",
-#    'Kennzeichen SoBil-Buchung': "string",
-#    'Festschreibung': "string",
-#    'Leistungsdatum': "string",
-#    'Datum Zuord.Steuerperiode': "string"
+    'Bon_Nummer': "string",
+    'Datum': "string",
+    'Uhrzeit': "string",
+    'Umsatz Br.': "float64",
+    'Anzahl': "string",
+    'Produkt': "string",
+    'Einzel VK Br.': "float64",
+    'MwSt-Satz': "string",
+    'MwSt': "float64",
+    'Dst/Ware': "string"
 }
-
-
-# read the DATEV header from a csv file containing DATEV output
-# tested with DATEV output from enforePOS
-
-def readDATEVHeader(infile):
-    colNames = list(dtypeDATEVHeader.keys())
-    try:
-        da = pd.read_csv(infile, sep=';', encoding='latin-1',usecols=list(range(0, len(colNames))), skiprows=None,  quotechar='"', nrows=1, names=colNames, dtype=dtypeDATEVHeader )
-    except:
-        print("Fehler beim Lesen des DATEV Headers von {}: {}".format(infile, sys.exc_info()[0]))
-        exit(1)
-    return(da)
 
 # read csv file containing all DATEV output
 # we read only those columns that are needed for output!
@@ -381,7 +137,7 @@ def readCSV(infile):
 
 def readCSV_All(infile):
     try:
-        da = pd.read_csv(infile, sep=';', encoding='latin-1', skiprows=[0],  decimal=",", dtype=dtypeDATEV)
+        da = pd.read_csv(infile, sep=';', encoding='latin-1', skiprows=[0],  decimal=",", dtype=dtypeGDPdU_KI)
     except:
         print("Fehler beim Lesen von {}: {}".format(infile, sys.exc_info()[0]))
         exit(1)
@@ -796,22 +552,6 @@ def main():
 
     args = parser.parse_args()
 
-    dfHeader = readDATEVHeader(args.file)
-    print ("\n###### DATEV Header der Datei {}\n".format(args.file))
-
-    print ("\t{: >30} : {}".format('Bezeichnung', dfHeader['Bezeichnung'].values[0]))
-    print ("\t{: >30} : {}".format('erzeugt am', dfHeader['erzeugt am'].values[0]))
-    print ("\t{: >30} : {}".format('Beginn Buchungsstapel', dfHeader['Datum Beginn Buchungsstapel'].values[0]))
-    print ("\t{: >30} : {}".format('Ende Buchungsstapel', dfHeader['Datum Ende Buchungsstapel'].values[0]))
-
-    wJahr = str(dfHeader['Wirtschaftsjahresbeginn'].values[0])[:4]
-    print ("\t{: >30} : {}".format('Wirtschaftsjahr', wJahr))
-
-    sExportiertVon = str(dfHeader['exportiert von'].values[0])
-    sErzeugtAm = str(dfHeader['erzeugt am'].values[0])
-    sReferenz = sExportiertVon + ' - ' + sErzeugtAm
-
-    sBuchungsText = str(dfHeader['Bezeichnung'].values[0])
 
     if (args.day is None and  args.account is None and  args.coupon is None):
         print ("\n###### Analyse Soll und Habenbuchungen für alle Konten")
