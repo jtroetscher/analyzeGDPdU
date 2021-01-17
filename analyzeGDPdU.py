@@ -5,7 +5,7 @@ import datetime as dt
 import pandas as pd
 import numpy as np
 
-programVersion = '1.3'
+programVersion = '1.4'
 lastModified = '17-01-2021'
 
 #
@@ -522,7 +522,7 @@ def printSaldenPerKonto(infile, heading, df, writeTX=False):
 
 #   Wir erzeugen eine Spalte Datum
 
-    ndf['Datum'] = ndf['DateTime max']
+    ndf['Datum'] = ndf['DateTime max'].dt.strftime('%d.%m.%Y')
     ndf['Text'] = "Sammelbuchung" + heading
 
 # drop columns that are no longer needed
