@@ -4,8 +4,8 @@ import os, sys, argparse
 import pandas as pd
 import numpy as np
 
-programVersion = '1.1'
-lastModified = '16-01-2021'
+programVersion = '1.2'
+lastModified = '17-01-2021'
 
 #
 # PURPOSE: autocomplete GDPdU to allow import in MonkeyOffice
@@ -262,6 +262,8 @@ def preprocessDataframe(da):
     lastCol=len(dRequiredFields)
     df.insert(lastCol, 'Soll/Haben', np.NaN)
     lastCol +=1
+    df.insert(lastCol, 'Umsatz', np.PZERO )
+    lastCol +=1
     df.insert(lastCol, 'Konto', defDebitAccountNo)
     lastCol +=1
     df.insert(lastCol, 'Gegenkonto', np.NaN)
@@ -283,20 +285,17 @@ def preprocessDataframe(da):
 
 # Convert columns 'Umsatz Br.' 'Einzel VK Br.' 'MwSt' to datatype float
 
-
-#    df['Umsatz Br.'] = df['Umsatz Br.'].str.replace('.','').str.replace(',','.').astype(float)
-#    df['Einzel VK Br.'] = df['Einzel VK Br.'].str.replace('.','').str.replace(',','.').astype(float)
-#    df['MwSt'] = df['MwSt'].str.replace('.','').str.replace(',','.').astype(float)
-
     convertColumnToFloat(df,'Umsatz Br.')
     convertColumnToFloat(df,'Einzel VK Br.')
     convertColumnToFloat(df,'MwSt')
 
-#    df['Umsatz Br.'] = pd.to_numeric(df['Umsatz Br.'], downcast="float")
+# Fill column 'Umsatz' (datatype float). At this stage positive or negative
 
-# fill the column Betrag depending on Anzahl
+    df['Umsatz'] = df[["Einzel VK Br.", "Anzahl"]].product(axis=1)
 
-    df['Soll/Haben'] = np.where(df['Anzahl'] >= 0, "S", "H")
+# fill the column Betrag depending on column 'Umsatz'
+
+    df['Soll/Haben'] = np.where(df['Umsatz'] >= 0, "S", "H")
 
 # create a column with ProSaldo tax rate identifier (Steuersatz)
 
@@ -338,11 +337,16 @@ def preprocessDataframe(da):
     df = pd.concat(frames)
     df = df.sort_index()
 
-#  swap debit and credit account if debit credit indicator is "H"
+#  swap debit and credit account if debit credit indicator == "H"
 
     df[['Konto','Gegenkonto']] = df[['Gegenkonto','Konto']].where(df['Soll/Haben'] == 'H', df[['Konto','Gegenkonto']].values)
 
-# create a column with dtype datetime64
+#  invert amount in column 'Umsatz' for transaction with debit credit indicator == "H"
+
+    mask = df['Soll/Haben'] == 'H'
+    df.loc[mask, 'Umsatz'] = df['Umsatz'] * -1
+
+# create a column with dtype datetime64. For the syntax of the format string
 # see https://docs.python.org/3/library/datetime.html#strftime-and-strptime-behavior
 
     print ("### {}\n".format("\n Generiere kombinierte Date-Time Spalte "))
@@ -353,9 +357,7 @@ def preprocessDataframe(da):
 #
 #    df['DateTime'] = pd.to_datetime(df['Datum'] + ' ' + df['Uhrzeit'], infer_datetime_format=True)
 
-    print(df.head(10))
-
-
+#    print(df.head(10))
 
 #  check whether we lost any transaction
 
@@ -370,7 +372,7 @@ def preprocessDataframe(da):
 
     return df
 
-# Ausgabe einer Zusammenfassung der Buchungen auf vordefinierte Ertragskonten
+# Ausgabe einer Zusammenfassung der Buchungen auf Ertragskonten
 # Annahme ist dass das PreProcessing ausgeführt wurde!
 
 # Ausgabe von Salden per Konto
@@ -410,11 +412,11 @@ def printSaldenPerKonto(infile, heading, df, writeTX=False):
         df_eKto = dfh[is_eKto].copy()
         if writeTX:
             newTX = newTX.append(df_eKto)
-        df_salden = df_eKto.groupby('Konto').agg({'Umsatz Br.': "sum",'DateTime' : [min, max] }).reset_index()
+        df_salden = df_eKto.groupby(['Konto','St-SL']).agg({'Umsatz': "sum",'DateTime' : ['min', 'max'] }).reset_index()
 
         if not df_salden.empty:
             print("\n###### Haben-Sammelbuchungen Konto {}\n".format(eKto))
-            total = df_salden['Umsatz Br.'].sum().values[0]
+            total = df_salden['Umsatz'].sum().values[0]
             df_salden.columns = [' '.join(col).strip() for col in df_salden.columns.values]
             df_salden.insert(1, 'Gegenkonto', eKto)
             print(df_salden)
@@ -435,11 +437,11 @@ def printSaldenPerKonto(infile, heading, df, writeTX=False):
         df_eKto = dfs[is_eKto].copy()
         if writeTX:
             newTX = newTX.append(df_eKto)
-        df_salden = df_eKto.groupby('Gegenkonto').agg({'Umsatz Br.': "sum",'DateTime' : [min, max] }).reset_index()
+        df_salden = df_eKto.groupby(['Gegenkonto','St-SL']).agg({'Umsatz': "sum",'DateTime' : ['min', 'max'] }).reset_index()
 
         if not df_salden.empty:
             print("\n###### Soll-Sammelbuchungen Konto {}\n".format(eKto))
-            total = df_salden['Umsatz Br.'].sum().values[0]
+            total = df_salden['Umsatz'].sum().values[0]
             df_salden.columns = [' '.join(col).strip() for col in df_salden.columns.values]
             df_salden.insert(0, 'Konto', eKto)
             print(df_salden)
@@ -454,16 +456,8 @@ def printSaldenPerKonto(infile, heading, df, writeTX=False):
 
 #   Wir erzeugen eine Spalte Datum
 
-    print(ndf.head(10))
-
-#    ndf['Datum'] = ndf['Datum max'].str[:2] + '.' + ndf['Datum max'].str[2:]
     ndf['Datum'] = ndf['DateTime max']
-
     ndf['Text'] = "Sammelbuchung"
-
-# create a column with tax rate
-
-    ndf['Steuer'] = '-' # add the new column and set all rows to that value
 
 # drop columns that are no longer needed
 
@@ -472,7 +466,7 @@ def printSaldenPerKonto(infile, heading, df, writeTX=False):
 
 # rename columns
 
-    ndf = ndf.rename({"Umsatz Br. sum": "Betrag"}, errors="raise", axis='columns')
+    ndf = ndf.rename({"Umsatz sum": "Betrag"}, errors="raise", axis='columns')
 
     writeCSV(infile, '_Sammelbuchungen' + heading, ndf)
     if writeTX:

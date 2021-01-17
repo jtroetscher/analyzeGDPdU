@@ -42,9 +42,7 @@ analyzeGDPdU is expecting the following formats to be used in the input file
 *   **Bon_Nummer** is numeric
 *   **Datum**: Date format is `DD.MM.YYYY`; example `02.01.2018`
 *   **Uhrzeit**: Time format is `HH:MM:SS` in 24h format; example `16:46:22`
-*   **Umsatz Br.**: revenue in EUR: decimal, not formatted to a fixed number of decimal digits.
-    It appears to be always positive.
-    Negative amounts are booked via a negative value in column `Anzahl`
+*   **Umsatz Br.**: revenue in EUR: decimal, not formatted to a fixed number of decimal digits. Can be positive or negative
     examples: `18`, `18,5`,
 *   **Anzahl**: numeric, can be positive or negative
     examples: `1`, `-1`,  
@@ -84,7 +82,7 @@ analyzeGDPdU will add columns 11 and following to the input file
 | 1  |   Bon_Nummer    |  Bon_Nummer       |  Referenz           |
 | 2  |   Datum         |  Datum            |  Datum              |
 | 3  |   Uhrzeit       |  Uhrzeit          |  kein Import        |
-| 4  |   Umsatz Br.    |  Umsatz Br.       |  Betrag             |
+| 4  |   Umsatz Br.    |  Umsatz Br.       |  kein Import        |
 | 5  |   Anzahl        |  Anzahl           |  kein Import        |
 | 6  |   Produkt       |  Produkt          |  Text               |
 | 7  |   Einzel VK Br. |  Einzel VK Br.    |  kein Import        |
@@ -92,11 +90,12 @@ analyzeGDPdU will add columns 11 and following to the input file
 | 9  |   MwSt          |  MwSt             |  kein Import        |
 | 10 |   Dst/Ware      |  Dst/Ware         |  Notiz              |
 | 11 |                 |  Soll/Haben       |  kein Import        |
-| 12 |                 |  Konto            |  KontoSoll          |
-| 13 |                 |  Gegenkonto       |  KontoHaben         |
-| 14 |                 |  St-SL            |  Steuersatz         |
-| 15 |                 |  DateTime         |  kein Import        |
-| 16 |                 |  ChangeLog        |  kein Import        |
+| 12 |                 |  Umsatz           |  Betrag             |
+| 13 |                 |  Konto            |  KontoSoll          |
+| 14 |                 |  Gegenkonto       |  KontoHaben         |
+| 15 |                 |  St-SL            |  Steuersatz         |
+| 16 |                 |  DateTime         |  kein Import        |
+| 17 |                 |  ChangeLog        |  kein Import        |
 
 ## ProSaldo Import Settings (Import Textdateien)
 
@@ -109,26 +108,14 @@ analyzeGDPdU will add columns 11 and following to the input file
 | Textbregrenzung:              |  keine                |
 | Zeichensatz:                  |  IsoLatin1 (Windows)  |
 
-## debit / credit indicator (Soll/Haben-Kennzeichen)
 
-All monetary amounts in the input column `Umsatz Br.` are positive
-(greater or equal to zero).
 
-The debit / credit indicator for each record is created based on data in column `Anzahl`
-according to the following rule
-*   debit / credit indicator = "S" if the content of  `Anzahl` is greater or equal to zero
-*   debit / credit indicator = "H" if the content of  `Anzahl` is less than zero
+## Umsatz
 
-We consider the selling goods or service a regular transactions.
-For regular transactions we set the debit / credit indicator to "S".
-With debit / credit indicator = "S" the posting follows the rule
-"debit to credit".
-
-*   Konto is the debit account
-*   Gegenkonto is the credit account
-
-With debit / credit indicator = "H" the Konto and Gegenkonto will be reversed
-in the posting follows and the positive amount in `Umsatz Br.` is preserved.
+Monetary amounts derived by multiplying column `Einzel VK Br.` with `Anzahl`.
+The goal is to have only positive monetary amounts in the input column `Umsatz`.
+In the next steps of the processing, we assign accounts, set the debit credit indicator and convert the monetary amount to be always positive!
+(for details see next sections)
 
 ## debit account (Konto)
 
@@ -155,9 +142,8 @@ dCAGoods = {
     'USt16': '4400',   # Umsatzsteuer 16%
     'USt19': '4400'    # Umsatzsteuer 19%
 }
+
 ```
-
-
 We create a subset of the dataframe to contain only transactions with
 `Dst/Ware` = `Dienst` and set the credit account according to the key   
 in column `MwSt-Satz` and  value taken from the following dictionary
@@ -197,3 +183,20 @@ dTaxKey = {
 
 A reduced tax rate was introduces during COVID-19 pandemie.
 The normal USt7 and USt19 are valid before 30.06.2020 and after 01.01.2021.
+
+## debit / credit indicator (Soll/Haben-Kennzeichen)
+
+The debit / credit indicator for each record is created based on data in column `Umsatz` according to the following rule
+*   debit / credit indicator = "S" if the content of  `Umsatz` is greater or equal to zero
+*   debit / credit indicator = "H" if the content of  `Umsatz` is less than zero
+
+We consider the selling goods or service a regular transactions.
+For regular transactions we set the debit / credit indicator to "S".
+With debit / credit indicator = "S" the posting follows the rule
+"debit to credit".
+
+*   Konto is the debit account
+*   Gegenkonto is the credit account
+
+With debit / credit indicator = "H" the Konto and Gegenkonto will be reversed.
+and the `Umsatz` amount will be inverted. In this way, we ensure that entries in `Umsatz` are always positive.
