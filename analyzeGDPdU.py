@@ -1,17 +1,24 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os, sys, argparse
+import datetime as dt
 import pandas as pd
 import numpy as np
 
-programVersion = '1.2'
+programVersion = '1.3'
 lastModified = '17-01-2021'
 
 #
 # PURPOSE: autocomplete GDPdU to allow import in MonkeyOffice
 #
 # AUTHOR: Jens Troetscher, JTTechConsult GmbH
-
+#
+# Note: The home dir ~/Scripts/Github-Private-Repositories/analyzeGDPdU/
+# is not part of our $PATH for executing shell scripts!
+# don't forget to copy the final version to ~/Scripts
+#
+# cp ~/Scripts/Github-Private-Repositories/analyzeGDPdU/analyzeGDPdU.py ~/Scripts/analyzeGDPdU.py
+#
 # DISCLAIMER:
 # THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -26,7 +33,7 @@ lastModified = '17-01-2021'
 #
 
 defTaxKey = '-'
-noTaxKey = '50'
+noTaxKey = '50'             # MwSt Satz fehlt im Input
 defAccountNo = '0000'
 defDebitAccountNo = '1600'
 
@@ -45,6 +52,8 @@ dtypeGDPdU_KI = {
     'Dst/Ware': "string"
 }
 
+# Alle Felder sind erforderlich und werden eingelesen
+
 dRequiredFields = {
     'Bon_Nummer': "string",
     'Datum': "string",
@@ -58,39 +67,43 @@ dRequiredFields = {
     'Dst/Ware': "string"
 }
 
+# Dictionary MWSt Satz -> Prosaldo Steuerschlüssel
+
 dTaxKey = {
-    '0': '-',       # Umsatzsteuerfrei
-    '5': 'USt5',    # Umsatzsteuer 5% (see note below)
-    '7': 'USt7',    # Umsatzsteuer 7%
-    '16': 'USt16',   # Umsatzsteuer 16% (see note below)
-    '19': 'USt19'   # Umsatzsteuer 19%
+    '0': '-',           # Umsatzsteuerfrei
+    '5': 'USt5',        # Umsatzsteuer 5% (see note below)
+    '7': 'USt7',        # Umsatzsteuer 7%
+    '16': 'USt16',      # Umsatzsteuer 16% (see note below)
+    '19': 'USt19'       # Umsatzsteuer 19%
 }
+
+# Dictionary Prosaldo Steuerschlüssel -> Erlöskonto Dienstleistungen
 
 dCAService = {
     '-': '4001',        # Umsatzsteuerfrei
-    '50': '4001',        # Umsatzsteuerfrei
+    '50': '4001',       # Steuersatz nicht definiert
     'USt5': '4301',     # Umsatzsteuer 5%
-    'USt7': '4301',    # Umsatzsteuer 7%
-    'USt16': '4401',   # Umsatzsteuer 16%
-    'USt19': '4401'    # Umsatzsteuer 19%
+    'USt7': '4301',     # Umsatzsteuer 7%
+    'USt16': '4401',    # Umsatzsteuer 16%
+    'USt19': '4401'     # Umsatzsteuer 19%
 }
+
+# Dictionary Prosaldo Steuerschlüssel -> Erlöskonto Waren
 
 dCAGoods = {
     '-': '4000',        # Umsatzsteuerfrei
-    '50': '4000',        # Umsatzsteuerfrei
+    '50': '4000',       # Steuersatz nicht definiert
     'USt5': '4300',     # Umsatzsteuer 5%
-    'USt7': '4300',    # Umsatzsteuer 7%
-    'USt16': '4400',   # Umsatzsteuer 16%
-    'USt19': '4400'    # Umsatzsteuer 19%
+    'USt7': '4300',     # Umsatzsteuer 7%
+    'USt16': '4400',    # Umsatzsteuer 16%
+    'USt19': '4400'     # Umsatzsteuer 19%
 }
 
-
-
-
 # read csv file containing all GDPdU output
-# we read only those columns that are needed for output!
-# we specifiy a format for each column (string and float)
+# we read required columns only
+# we read all values as string and do the datatype conversion later
 # we are prepared to locate the required columns using their names
+#
 # Note: According to pandas documentation, it should be possible to
 # specify fieldnames in the read_csv command: usecols=fieldNames
 # However, this was not working at the time of writing.
@@ -236,7 +249,29 @@ def getCreditAccountGoods (taxKey):
 
 
 # The following modificactions are made to the dataframe containing the GDPdU Export
-
+# 1.  strip whitespace from all strings
+# 2.  Convert column 'Anzahl' to datatype integer
+# 3.  Convert columns 'Umsatz Br.' 'Einzel VK Br.' 'MwSt' to datatype float
+# Other than format conversions and string cleaning,
+# the content of the input columns is not modified!
+# The following colums are added to the dataframe:
+# 4.  column name
+#       'Soll/Haben',
+#       'Umsatz',
+#       'Konto' with default entry defDebitAccountNo
+#       'Gegenkonto',
+#       'St-SL',
+#       'DateTime',
+#       'ChangeLog'
+# 5.  Fill column 'Umsatz' (datatype float). At this stage positive or negative
+# 6.  fill the column 'Soll/Haben' depending on column 'Umsatz'
+# 7.  fill the column 'St-SL' with ProSaldo tax rate identifier (Steuersatz)
+# 8.  fill column 'Gegenkonto' depending on 'St-SL' and 'Dst/Ware'
+# 9.  swap debit and credit account if debit credit indicator == "H"
+# 10. invert amount in column 'Umsatz' for transaction with debit credit indicator == "H"
+#     after this step the column 'Umsatz' is always positive
+# 11. fill column 'DateTime' with dtype datetime64 using the columns 'Datum' and 'Uhrzeit'
+# create entries in 'ChangeLog' in case of irregularities
 
 def preprocessDataframe(da):
 
@@ -276,7 +311,6 @@ def preprocessDataframe(da):
 
     print ("\n### {}\n".format("Konvertiere Datentypen"))
 
-
 # Convert column 'Anzahl' to datatype integer
 
     print("\tNeuer Datentyp für Spalte {} ist integer".format('Anzahl'))
@@ -293,11 +327,11 @@ def preprocessDataframe(da):
 
     df['Umsatz'] = df[["Einzel VK Br.", "Anzahl"]].product(axis=1)
 
-# fill the column Betrag depending on column 'Umsatz'
+# fill the column 'Soll/Haben' depending on column 'Umsatz'
 
     df['Soll/Haben'] = np.where(df['Umsatz'] >= 0, "S", "H")
 
-# create a column with ProSaldo tax rate identifier (Steuersatz)
+# fill the column 'St-SL' with ProSaldo tax rate identifier (Steuersatz)
 
     print ("\n### {}\n".format("Generiere ProSaldo Steuerschlüssel"))
 
@@ -314,7 +348,8 @@ def preprocessDataframe(da):
 
     print ("\n### {}\n".format("Generiere ProSaldo Gegenkonten"))
 
-# split transactions into service and others (goods)
+# fill column 'Gegenkonto' depending on 'St-SL' and 'Dst/Ware'
+# a. split transactions into service and others (goods)
 
     mask = df['Dst/Ware'] == 'Dienst'
     df_services = df[mask].copy()
@@ -323,9 +358,13 @@ def preprocessDataframe(da):
     uniqueTaxKey = df['St-SL'].unique()
     print("Die folgenden Steuerschlüssel sind im Dataframe vorhanden: {}".format(uniqueTaxKey))
 
+# fill column 'Gegenkonto' depending on 'St-SL' for Services
+
     for eKey in uniqueTaxKey:
         pAccount = getCreditAccountServices(eKey)
         df_services.loc[df['St-SL'] == eKey, 'Gegenkonto'] = pAccount
+
+# fill column 'Gegenkonto' depending on 'St-SL' for Goods
 
     for eKey in uniqueTaxKey:
         pAccount = getCreditAccountGoods(eKey)
@@ -349,7 +388,7 @@ def preprocessDataframe(da):
 # create a column with dtype datetime64. For the syntax of the format string
 # see https://docs.python.org/3/library/datetime.html#strftime-and-strptime-behavior
 
-    print ("### {}\n".format("\n Generiere kombinierte Date-Time Spalte "))
+    print ("\n ### {}\n".format("Generiere kombinierte Date-Time Spalte "))
 
     df['DateTime'] = pd.to_datetime(df['Datum'] + ' ' + df['Uhrzeit'], format='%d.%m.%Y %H:%M:%S')
 
@@ -371,6 +410,29 @@ def preprocessDataframe(da):
 #    print(df.columns.values.tolist())
 
     return df
+
+# Purpose of printSaldenPerKonto: write summary postings for income accounts
+# Assumption: PreProcessing has been done
+# Output:   CSV file with summary postings.
+#           If the flag writeTX is set (through the verbose option)
+#           an additional CSV file with all transactions.
+
+# Note: You could do rounding here, df_salden.round ({'Sales': 2})
+# but defer it because we round off when writing the CSV output!
+#
+# Note: hierarchical column names after groupby.agg operation
+# The groupby.agg operation creates a hierarchical name for axis 1 (columns)
+# Index is the account 'Gegenkonto'
+# The DataFrame df_salden has hierarchical names
+# that look like the following
+# [('Sales', 'sum'), ('Document date', 'min'), ('Document date', 'max')]
+# use print (df_salden.columns.values.tolist ())
+#
+# We use the hierarchical names for the output on the console
+# For the CSV file we only want a header line and with "flat" column names
+# Hence the operation
+# df_salden.columns = ['' .join (col) .strip () for col in df_salden.columns.values]
+# Note: we must strip the whitespace for when there is no second index.
 
 # Ausgabe einer Zusammenfassung der Buchungen auf Ertragskonten
 # Annahme ist dass das PreProcessing ausgeführt wurde!
@@ -400,6 +462,8 @@ def printSaldenPerKonto(infile, heading, df, writeTX=False):
 
     mask = df['Soll/Haben'] == 'H'
     dfh = df[mask].copy()
+
+    print("\n###### Haben-Transaktionen\n")
     print("Gesamt Anz. Haben Transaktionen\t {:>8d}".format( dfh.shape[0]))
 
     uniqueHKonto = dfh['Gegenkonto'].unique()
@@ -420,11 +484,13 @@ def printSaldenPerKonto(infile, heading, df, writeTX=False):
             df_salden.columns = [' '.join(col).strip() for col in df_salden.columns.values]
             df_salden.insert(1, 'Gegenkonto', eKto)
             print(df_salden)
-            print("\n{: >10}  \t{}\t\t{:.2f}".format('Summe', eKto, total))
+            print("\n{: >8}{: >10}\t\t{:.2f}".format('Summe', eKto, total))
             newHDF = newHDF.append(df_salden) # Gegenkonto soll erhalten bleiben!
 
     mask = df['Soll/Haben'] == 'S'
     dfs = df[mask].copy()
+    print("\n###### Soll-Transaktionen\n")
+
     print("Gesamt Anz. Soll Transaktionen\t {:>8d}".format( dfs.shape[0]))
 
     uniqueSKonto = dfs['Konto'].unique()
@@ -445,7 +511,7 @@ def printSaldenPerKonto(infile, heading, df, writeTX=False):
             df_salden.columns = [' '.join(col).strip() for col in df_salden.columns.values]
             df_salden.insert(0, 'Konto', eKto)
             print(df_salden)
-            print("\n{: >10}  \t{}\t\t{:.2f}".format('Summe', eKto, total))
+            print("\n{: >8}{: >10}\t\t{:.2f}".format('Summe', eKto, total))
 #            df_salden.columns = [' '.join(col).strip() for col in df_salden.columns.values]
             newSDF = newSDF.append(df_salden) # Gegenkonto soll erhalten bleiben!
 
@@ -457,7 +523,7 @@ def printSaldenPerKonto(infile, heading, df, writeTX=False):
 #   Wir erzeugen eine Spalte Datum
 
     ndf['Datum'] = ndf['DateTime max']
-    ndf['Text'] = "Sammelbuchung"
+    ndf['Text'] = "Sammelbuchung" + heading
 
 # drop columns that are no longer needed
 
@@ -468,14 +534,39 @@ def printSaldenPerKonto(infile, heading, df, writeTX=False):
 
     ndf = ndf.rename({"Umsatz sum": "Betrag"}, errors="raise", axis='columns')
 
-    writeCSV(infile, '_Sammelbuchungen' + heading, ndf)
+    writeCSV(infile, heading + '_Sammelbuchungen' , ndf)
     if writeTX:
-        writeCSV(infile, '_Transaktionen' + heading, newTX)
+        writeCSV(infile, heading + '_Transaktionen' , newTX)
 
-def selectReceiptDate(df, receiptdate):
-    is_day = df['Datum']==receiptdate
-    ds = df[is_day]
-    return ds
+# Select a subset of the dataframe that is between two Date
+# Note: The PreProcessing must run before to create the
+# df['DateTime'] column
+
+def selectReceiptDate(df, start_date, end_date):
+
+# Make a boolean mask.
+# start_date and end_date can be datetime.datetimes, np.datetime64s, pd.Timestamps, or even datetime strings:
+# greater than the start date and smaller than the end date
+
+    format = "%Y-%m-%d"
+
+    try:
+        dt.datetime.strptime(start_date, format)
+        print("\tStart Date {} OK".format(start_date))
+    except ValueError:
+        print("\tStart Date {} format is incorrect. It should be YYYY-MM-DD".format(start_date))
+        exit(1)
+
+    try:
+        dt.datetime.strptime(end_date, format)
+        print("\tEnd Date   {} OK".format(end_date))
+    except ValueError:
+        print("\tEnd Date   {} format is incorrect. It should be YYYY-MM-DD".format(end_date))
+        exit(1)
+
+    mask = (df['DateTime'] > start_date) & (df['DateTime'] <= end_date)
+    dfp = df.loc[mask].copy()
+    return dfp
 
 # Main function using argparse for commandline arguments and options
 # Die Nummer des Wertgutscheins steht in Spalte "Beleginfo - Inhalt 6"
@@ -489,7 +580,12 @@ def main():
 
     parser = argparse.ArgumentParser(description='Salden per Konto aus dem GDPdU Export von enforePOS')
     parser.add_argument('-f','--file', help='Name der CSV Datei mit dem enforePOS GDPdU export', required=True)
-    parser.add_argument('-d','--day', help='Analyse auf Zeilen mit bestimmten Belegdatum beschränken (Format: DDMM)', required=False)
+    parser.add_argument(
+        '-p','--period',
+        nargs=2,
+        metavar=('start_date', 'end_date'),
+        help='Analyse zwischen zwei Daten  (Format: YYYY-MM-DD YYYY-MM-DD) Datum > start_date 00:00:00 & Datum <= end_date 00:00:00',
+        required=False)
     parser.add_argument('-v','--verbose', help='Weitere Information ausgeben: Zusätzlich CSV Datei mit Transaktionen schreiben',
         required=False, action='store_true', default=False)
 
@@ -497,21 +593,20 @@ def main():
 
     df = readCSV(args.file)
 
-    if (args.day is None):
+    if (args.period is None):
         dfp = preprocessDataframe(df)
-        writeCSV(args.file, '_' + 'Import', dfp)
-
-        heading = 'All'
+        heading = '_All'
+        writeCSV(args.file, heading + '_Import', dfp)
         printSaldenPerKonto(args.file, heading, dfp, args.verbose)
     else:
         print ("\n###### Analyse mit Filtern:\n")
-        heading = 'Belegdatum_' + args.day
-        print ("nur  {}".format(heading))
-        df = selectReceiptDate(df, args.day)
+        start_date, end_date = args.period
+        heading = '_vom_' + start_date + '_bis_' + end_date
+        print ("Periode vom {} bis {} ".format(start_date, end_date))
         dfp = preprocessDataframe(df)
-        writeCSV(args.file, '_' + 'Import_' + 'args.day', dfp)
-
-        printSaldenPerKonto(args.file, heading, dfp, args.verbose)
+        dfpp = selectReceiptDate(dfp, start_date, end_date)
+        writeCSV(args.file, heading + '_Import' , dfpp)
+        printSaldenPerKonto(args.file, heading, dfpp, args.verbose)
 
     print("\n###### Programm wurde normal beendet.\n")
 
