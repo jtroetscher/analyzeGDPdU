@@ -5,7 +5,7 @@ import datetime as dt
 import pandas as pd
 import numpy as np
 
-programVersion = '1.5'
+programVersion = '1.5.1'
 lastModified = '21-01-2021'
 
 #
@@ -36,6 +36,12 @@ defTaxKey = '-'
 noTaxKey = '50'             # MwSt Satz fehlt im Input
 defAccountNo = '0000'
 defDebitAccountNo = '1600'
+
+# suffices for output filenames
+
+sxCollectivePostings = 'Sammelbuchungen'
+sxImportProSaldo = 'Import'
+sxTransactions = 'Transaktionen'
 
 # Datenformat des GDPdU Exports
 
@@ -411,7 +417,7 @@ def preprocessDataframe(da):
 
     return df
 
-# Purpose of printSaldenPerKonto: write summary postings for income accounts
+# Purpose of collectivePostings: generate collective postings for income accounts
 # Assumption: PreProcessing has been done
 # Output:   CSV file with summary postings.
 #           If the flag writeTX is set (through the verbose option)
@@ -455,27 +461,24 @@ def preprocessDataframe(da):
 # Wenn das Flag writeTX gesetzt ist (durch die verbose option)
 # wird auch eine CSV Datei mit den selektierten Transaktionen geschrieben.
 
-def printSaldenPerKonto(infile, heading, postingText, df, writeTX=False):
+def collectivePostings(postingText, heading, df):
 
-    if writeTX:
-        newTX = pd.DataFrame() #creates a new dataframe that's empty
+    dftx = pd.DataFrame() #creates a new dataframe that's empty
+
+    # process subset of transactions with 'Soll/Haben' == 'H'
 
     mask = df['Soll/Haben'] == 'H'
     dfh = df[mask].copy()
-
     print("\n###### Haben-Transaktionen\n")
     print("Gesamt Anz. Haben Transaktionen\t {:>8d}".format( dfh.shape[0]))
-
     uniqueHKonto = dfh['Gegenkonto'].unique()
     uniqueHKonto = np.sort(uniqueHKonto)
-
     newHDF = pd.DataFrame() #creates a new dataframe that's empty
 
     for eKto in uniqueHKonto:
         is_eKto = dfh['Gegenkonto']==eKto
         df_eKto = dfh[is_eKto].copy()
-        if writeTX:
-            newTX = newTX.append(df_eKto)
+        dftx = dftx.append(df_eKto)
         df_salden = df_eKto.groupby(['Konto','St-SL']).agg({'Umsatz': "sum",'DateTime' : ['min', 'max'] }).reset_index()
 
         if not df_salden.empty:
@@ -487,22 +490,20 @@ def printSaldenPerKonto(infile, heading, postingText, df, writeTX=False):
             print("\n{: >8}{: >10}\t\t{:.2f}".format('Summe', eKto, total))
             newHDF = newHDF.append(df_salden) # Gegenkonto soll erhalten bleiben!
 
+    # process subset of transactions with 'Soll/Haben' == 'S'
+
     mask = df['Soll/Haben'] == 'S'
     dfs = df[mask].copy()
     print("\n###### Soll-Transaktionen\n")
-
     print("Gesamt Anz. Soll Transaktionen\t {:>8d}".format( dfs.shape[0]))
-
     uniqueSKonto = dfs['Konto'].unique()
     uniqueSKonto = np.sort(uniqueSKonto)
-
     newSDF = pd.DataFrame() #creates a new dataframe that's empty
 
     for eKto in uniqueHKonto:
         is_eKto = dfs['Konto']==eKto
         df_eKto = dfs[is_eKto].copy()
-        if writeTX:
-            newTX = newTX.append(df_eKto)
+        dftx = dftx.append(df_eKto)
         df_salden = df_eKto.groupby(['Gegenkonto','St-SL']).agg({'Umsatz': "sum",'DateTime' : ['min', 'max'] }).reset_index()
 
         if not df_salden.empty:
@@ -512,31 +513,29 @@ def printSaldenPerKonto(infile, heading, postingText, df, writeTX=False):
             df_salden.insert(0, 'Konto', eKto)
             print(df_salden)
             print("\n{: >8}{: >10}\t\t{:.2f}".format('Summe', eKto, total))
-#            df_salden.columns = [' '.join(col).strip() for col in df_salden.columns.values]
             newSDF = newSDF.append(df_salden) # Gegenkonto soll erhalten bleiben!
 
-#   Wir führen die Dataframes zusammen
+    #   combine the two dataframes
 
-    ndf = pd.concat([newHDF, newSDF])
-    ndf = ndf.sort_index()
+    dfcp = pd.concat([newHDF, newSDF])
+    dfcp = dfcp.sort_index()
 
-#   Wir erzeugen eine Spalte Datum
+    #   Create new colums
 
-    ndf['Datum'] = ndf['DateTime max'].dt.strftime('%d.%m.%Y')
-    ndf['Text'] = postingText + heading
+    dfcp['Datum'] = dfcp['DateTime max'].dt.strftime('%d.%m.%Y')
+    dfcp['Text'] = postingText + heading
 
-# drop columns that are no longer needed
+    # drop columns that are no longer needed
 
-    ndf.drop('DateTime max', axis=1, inplace=True)
-    ndf.drop('DateTime min', axis=1, inplace=True)
+    dfcp.drop('DateTime max', axis=1, inplace=True)
+    dfcp.drop('DateTime min', axis=1, inplace=True)
 
-# rename columns
+    # rename columns
 
-    ndf = ndf.rename({"Umsatz sum": "Betrag"}, errors="raise", axis='columns')
+    dfcp = dfcp.rename({"Umsatz sum": "Betrag"}, errors="raise", axis='columns')
 
-    writeCSV(infile, heading + '_Sammelbuchungen' , ndf)
-    if writeTX:
-        writeCSV(infile, heading + '_Transaktionen' , newTX)
+    return dfcp, dftx
+
 
 # Select a subset of the dataframe that is between two Date
 # Note: The PreProcessing must run before to create the
@@ -594,12 +593,14 @@ def main():
 
     df = readCSV(args.file)
 
+    dfi = pd.DataFrame() #creates a new dataframe that's empty
+    dfc = pd.DataFrame() #creates a new dataframe that's empty
 
     if (args.period is None):
         dfp = preprocessDataframe(df)
         heading = '_All'
-        writeCSV(args.file, heading + '_Import', dfp)
-        printSaldenPerKonto(args.file, heading, args.text, dfp, args.verbose)
+        writeCSV(args.file, '_' + sxImportProSaldo  + heading, dfp)
+        dfc, dfi = collectivePostings(args.text, heading, dfp)
     else:
         print ("\n###### Analyse mit Filtern:\n")
         start_date, end_date = args.period
@@ -607,8 +608,13 @@ def main():
         print ("Periode vom {} bis {} ".format(start_date, end_date))
         dfp = preprocessDataframe(df)
         dfpp = selectReceiptDate(dfp, start_date, end_date)
-        writeCSV(args.file, heading + '_Import' , dfpp)
-        printSaldenPerKonto(args.file, heading, args.text, dfpp, args.verbose)
+        writeCSV(args.file, '_' + sxImportProSaldo  + heading, dfpp)
+        dfc, dfi = collectivePostings(args.text, heading, dfpp)
+
+    writeCSV(args.file, '_' + sxCollectivePostings + heading, dfc)
+    if args.verbose:
+        writeCSV(args.file, '_' + sxTransactions + heading, dfi)
+
 
     print("\n###### Programm wurde normal beendet.\n")
 
