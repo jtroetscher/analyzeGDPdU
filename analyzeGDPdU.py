@@ -5,8 +5,8 @@ import datetime as dt
 import pandas as pd
 import numpy as np
 
-programVersion = '1.4'
-lastModified = '17-01-2021'
+programVersion = '1.5'
+lastModified = '21-01-2021'
 
 #
 # PURPOSE: autocomplete GDPdU to allow import in MonkeyOffice
@@ -455,7 +455,7 @@ def preprocessDataframe(da):
 # Wenn das Flag writeTX gesetzt ist (durch die verbose option)
 # wird auch eine CSV Datei mit den selektierten Transaktionen geschrieben.
 
-def printSaldenPerKonto(infile, heading, df, writeTX=False):
+def printSaldenPerKonto(infile, heading, postingText, df, writeTX=False):
 
     if writeTX:
         newTX = pd.DataFrame() #creates a new dataframe that's empty
@@ -523,7 +523,7 @@ def printSaldenPerKonto(infile, heading, df, writeTX=False):
 #   Wir erzeugen eine Spalte Datum
 
     ndf['Datum'] = ndf['DateTime max'].dt.strftime('%d.%m.%Y')
-    ndf['Text'] = "Sammelbuchung" + heading
+    ndf['Text'] = postingText + heading
 
 # drop columns that are no longer needed
 
@@ -586,6 +586,7 @@ def main():
         metavar=('start_date', 'end_date'),
         help='Analyse zwischen zwei Daten  (Format: YYYY-MM-DD YYYY-MM-DD) Datum > start_date 00:00:00 & Datum <= end_date 00:00:00',
         required=False)
+    parser.add_argument('-t','--text', help='Buchungstext Sammelbuchungen', required=False, default='Sammelbuchung')
     parser.add_argument('-v','--verbose', help='Weitere Information ausgeben: Zusätzlich CSV Datei mit Transaktionen schreiben',
         required=False, action='store_true', default=False)
 
@@ -593,11 +594,12 @@ def main():
 
     df = readCSV(args.file)
 
+
     if (args.period is None):
         dfp = preprocessDataframe(df)
         heading = '_All'
         writeCSV(args.file, heading + '_Import', dfp)
-        printSaldenPerKonto(args.file, heading, dfp, args.verbose)
+        printSaldenPerKonto(args.file, heading, args.text, dfp, args.verbose)
     else:
         print ("\n###### Analyse mit Filtern:\n")
         start_date, end_date = args.period
@@ -606,7 +608,7 @@ def main():
         dfp = preprocessDataframe(df)
         dfpp = selectReceiptDate(dfp, start_date, end_date)
         writeCSV(args.file, heading + '_Import' , dfpp)
-        printSaldenPerKonto(args.file, heading, dfpp, args.verbose)
+        printSaldenPerKonto(args.file, heading, args.text, dfpp, args.verbose)
 
     print("\n###### Programm wurde normal beendet.\n")
 
