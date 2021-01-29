@@ -1,4 +1,4 @@
-# analyzeGDPdU# analyzeGDPdU
+# analyzeGDPdU
 
 AUTHOR: Jens Troetscher, JTTechConsult GmbH
 
@@ -10,12 +10,44 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 ## PURPOSE:
 
+Python command-line application to
 enrich transaction data stored in GDPdU export format that has been created by
 the windows application `Friseur`,
 a checkout program by Kühnemann Informatik,
-Strassacker 10, D-87487 Wiggensbach
+Strassacker 10, D-87487 Wiggensbach.
+The windows application `Friseur` is referred to as **KI-Kasse**.
 
-### input:
+## USAGE:
+
+analyzeGDPdU.py is run from the command line and has been tested with
+Python version 3.8.3.
+
+```
+usage: analyzeGDPdU.py [-h] -f FILE [-p start_date end_date] [-t TEXT] [-v]
+
+optional arguments:
+
+  -h, --help            show this help message and exit
+  -f FILE, --file FILE  Name der CSV Datei mit dem KI-Kasse GDPdU export
+  -p start_date end_date, --period start_date end_date
+                        Analyse zwischen zwei Daten (Format: YYYY-MM-DD YYYY-MM-DD) Datum > start_date 00:00:00 & Datum <=
+                        end_date 00:00:00
+  -t TEXT, --text TEXT  Buchungstext Sammelbuchungen
+  -v, --verbose         Weitere Information ausgeben: Zusätzlich CSV Datei mit Transaktionen schreiben
+```
+
+If no period is specified, all transactions in the input file will be included in the analysis.
+If a period is specified, `analyzeGDPdU.py`  creates
+collective posting output file names
+according to the following naming convention
+
+    ${file%.*}_Sammelbuchungen_vom_2018-01-01_bis_2018-02-01
+
+It is recommended to use a shell script to generate monthly postings from a
+GDPdU export that contains transactions from a full year.
+See last section for an example. 
+
+### Input:
 
 GDPdU export file (csv-format) with the following columns
 
@@ -75,56 +107,51 @@ The field "Produkt" contained a text that was entered manually!
 
 ## output
 
+
 analyzeGDPdU will add columns 11 and following to the input file
 
 | No |   Input         |     Output        |  ProSoldo           |
 | -- | --------------- | ----------------- |  ------------------ |  
 | 1  |   Bon_Nummer    |  Bon_Nummer       |  Referenz           |
 | 2  |   Datum         |  Datum            |  Datum              |
-| 3  |   Uhrzeit       |  Uhrzeit          |  kein Import        |
-| 4  |   Umsatz Br.    |  Umsatz Br.       |  kein Import        |
-| 5  |   Anzahl        |  Anzahl           |  kein Import        |
+| 3  |   Uhrzeit       |  Uhrzeit          |  no Import          |
+| 4  |   Umsatz Br.    |  Umsatz Br.       |  no Import          |
+| 5  |   Anzahl        |  Anzahl           |  no Import          |
 | 6  |   Produkt       |  Produkt          |  Text               |
-| 7  |   Einzel VK Br. |  Einzel VK Br.    |  kein Import        |
-| 8  |   MwSt-Satz     |  MwSt-Satz        |  kein Import        |
-| 9  |   MwSt          |  MwSt             |  kein Import        |
+| 7  |   Einzel VK Br. |  Einzel VK Br.    |  no Import          |
+| 8  |   MwSt-Satz     |  MwSt-Satz        |  no Import          |
+| 9  |   MwSt          |  MwSt             |  no Import          |
 | 10 |   Dst/Ware      |  Dst/Ware         |  Notiz              |
-| 11 |                 |  Soll/Haben       |  kein Import        |
+| 11 |                 |  Soll/Haben       |  no Import          |
 | 12 |                 |  Umsatz           |  Betrag             |
 | 13 |                 |  Konto            |  KontoSoll          |
 | 14 |                 |  Gegenkonto       |  KontoHaben         |
 | 15 |                 |  St-SL            |  Steuersatz         |
-| 16 |                 |  DateTime         |  kein Import        |
-| 17 |                 |  ChangeLog        |  kein Import        |
-
-## ProSaldo Import Settings (Import Textdateien)
-
-### General
-
-| Parameter                     |   Wert                |
-| ----------------------------- | --------------------- |    
-| Trennzeichen für Felder:      |  Semikolon            |
-| Trennzeichen für Datensätze:  |  LF                   |
-| Textbregrenzung:              |  keine                |
-| Zeichensatz:                  |  IsoLatin1 (Windows)  |
+| 16 |                 |  DateTime         |  no Import          |
+| 17 |                 |  ChangeLog        |  no Import          |
 
 
 
-## Umsatz
+## Rules for derived values in output file
+
+### Umsatz (Turnover)
 
 Monetary amounts derived by multiplying column `Einzel VK Br.` with `Anzahl`.
 The goal is to have only positive monetary amounts in the input column `Umsatz`.
+
+### Konto, Gegenkonto, St-SL
+
 In the next steps of the processing, we assign accounts, set the debit credit indicator and convert the monetary amount to be always positive!
 (for details see next sections)
 
-## debit account (Konto)
+**debit account (Konto)**
 
 The debit account for each record is always set to `1600`
 which is the standard account for the cash register in account plan SKR04.
 
 The export data does not contain information to distinguish between cash payment and bank transfer.
 
-## credit account and tax key (Gegenkonto)
+**credit account and tax key (Gegenkonto)**
 
 The debit / credit indicator for each record is created based on data
 in column `MwSt-Satz` and `Dst/Ware`.
@@ -165,7 +192,7 @@ If there is a mismatch, we issue a warning.
 Such a mismatch would mean that there a records with an entry in `Dst/Ware`
 that is not in the set (`Ware`,`Dienst`).
 
-## Tax Keys in ProSaldo
+**Tax Keys in ProSaldo**
 
 We create the tax key in column `St-SL` according to the key   
 in column `MwSt-Satz` and  value taken from the following dictionary
@@ -184,7 +211,7 @@ dTaxKey = {
 A reduced tax rate was introduces during COVID-19 pandemie.
 The normal USt7 and USt19 are valid before 30.06.2020 and after 01.01.2021.
 
-## debit / credit indicator (Soll/Haben-Kennzeichen)
+**debit / credit indicator (Soll/Haben-Kennzeichen)**
 
 The debit / credit indicator for each record is created based on data in column `Umsatz` according to the following rule
 *   debit / credit indicator = "S" if the content of  `Umsatz` is greater or equal to zero
@@ -200,3 +227,17 @@ With debit / credit indicator = "S" the posting follows the rule
 
 With debit / credit indicator = "H" the Konto and Gegenkonto will be reversed.
 and the `Umsatz` amount will be inverted. In this way, we ensure that entries in `Umsatz` are always positive.
+
+## ProSaldo Import Settings (Import Textdateien)
+
+When importing in MonkeyOffice FIBU by ProSaldo,
+use **Import Textdateien** and the following settings
+
+### General
+
+| Parameter                     |   Wert                |
+| ----------------------------- | --------------------- |    
+| Trennzeichen für Felder:      |  Semikolon            |
+| Trennzeichen für Datensätze:  |  LF                   |
+| Textbregrenzung:              |  keine                |
+| Zeichensatz:                  |  IsoLatin1 (Windows)  |

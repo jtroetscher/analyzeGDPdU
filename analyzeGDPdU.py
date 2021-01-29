@@ -577,8 +577,8 @@ def main():
     print("\n###### This is {} Version {} last modified {} ######".format(os.path.basename(sys.argv[0]), programVersion, lastModified))
     print("\nPython version is {}".format(sys.version))
 
-    parser = argparse.ArgumentParser(description='Salden per Konto aus dem GDPdU Export von enforePOS')
-    parser.add_argument('-f','--file', help='Name der CSV Datei mit dem enforePOS GDPdU export', required=True)
+    parser = argparse.ArgumentParser(description='Salden per Konto aus dem GDPdU Export von KI-Kasse')
+    parser.add_argument('-f','--file', help='Name der CSV Datei mit dem KI-Kasse GDPdU export', required=True)
     parser.add_argument(
         '-p','--period',
         nargs=2,
