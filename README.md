@@ -22,6 +22,7 @@ The windows application `Friseur` is referred to as **KI-Kasse**.
 analyzeGDPdU.py is run from the command line and has been tested with
 Python version 3.8.3.
 
+
 ```
 usage: analyzeGDPdU.py [-h] -f FILE [-p start_date end_date] [-t TEXT] [-v]
 
@@ -30,11 +31,15 @@ optional arguments:
   -h, --help            show this help message and exit
   -f FILE, --file FILE  Name der CSV Datei mit dem KI-Kasse GDPdU export
   -p start_date end_date, --period start_date end_date
-                        Analyse zwischen zwei Daten (Format: YYYY-MM-DD YYYY-MM-DD) Datum > start_date 00:00:00 & Datum <=
-                        end_date 00:00:00
+                        Analyse zwischen zwei Daten
+                        (Format: YYYY-MM-DD YYYY-MM-DD)
+                        Datum > start_date 00:00:00 &
+                        Datum <= end_date 00:00:00
   -t TEXT, --text TEXT  Buchungstext Sammelbuchungen
-  -v, --verbose         Weitere Information ausgeben: Zusätzlich CSV Datei mit Transaktionen schreiben
+  -v, --verbose         Weitere Information ausgeben:
+                        Zusätzlich CSV Datei mit Transaktionen schreiben
 ```
+
 
 If no period is specified, all transactions in the input file will be included in the analysis.
 If a period is specified, `analyzeGDPdU.py`  creates
@@ -45,7 +50,7 @@ according to the following naming convention
 
 It is recommended to use a shell script to generate monthly postings from a
 GDPdU export that contains transactions from a full year.
-See last section for an example. 
+See last section for an example.
 
 ### Input:
 
@@ -157,31 +162,35 @@ The debit / credit indicator for each record is created based on data
 in column `MwSt-Satz` and `Dst/Ware`.
 
 We create a subset of the dataframe to contain only transactions with
-`Dst/Ware` = `Ware` and set the credit account according to the key   
-in column `MwSt-Satz` and  value taken from the following dictionary
+`Dst/Ware` = `Ware`.
+
+We set the credit account by using the data in column `MwSt-Satz`
+as the key and take the value from the following dictionary
 
 ```
 dCAGoods = {
-    '-': '4000',       # Umsatzsteuerfrei
-    '50': '4000',      # Umsatzsteuerfrei
-    'USt5': '4300',    # Umsatzsteuer 5%
-    'USt7': '4300',    # Umsatzsteuer 7%
+    '-':     '4000',   # Umsatzsteuerfrei
+    '50':    '4000',   # Umsatzsteuerfrei
+    'USt5':  '4300',   # Umsatzsteuer 5%
+    'USt7':  '4300',   # Umsatzsteuer 7%
     'USt16': '4400',   # Umsatzsteuer 16%
     'USt19': '4400'    # Umsatzsteuer 19%
 }
 
 ```
 We create a subset of the dataframe to contain only transactions with
-`Dst/Ware` = `Dienst` and set the credit account according to the key   
-in column `MwSt-Satz` and  value taken from the following dictionary
+`Dst/Ware` = `Dienst`.
+
+We set the credit account by using the data in column `MwSt-Satz`
+as the key and take the value from the following dictionary
 
 
 ```
 dCAService = {
-    '-': '4001',       # Umsatzsteuerfrei
-    '50': '4001',      # Umsatzsteuerfrei
-    'USt5': '4301',    # Umsatzsteuer 5%
-    'USt7': '4301',    # Umsatzsteuer 7%
+    '-':     '4001',   # Umsatzsteuerfrei
+    '50':    '4001',   # Umsatzsteuerfrei
+    'USt5':  '4301',   # Umsatzsteuer 5%
+    'USt7':  '4301',   # Umsatzsteuer 7%
     'USt16': '4401',   # Umsatzsteuer 16%
     'USt19': '4401'    # Umsatzsteuer 19%
 }
@@ -194,8 +203,8 @@ that is not in the set (`Ware`,`Dienst`).
 
 **Tax Keys in ProSaldo**
 
-We create the tax key in column `St-SL` according to the key   
-in column `MwSt-Satz` and  value taken from the following dictionary
+We create the tax key in column `St-SL` by using the data
+in column `MwSt-Satz` as the key and take the value from the following dictionary
 
 
 ```
@@ -214,6 +223,7 @@ The normal USt7 and USt19 are valid before 30.06.2020 and after 01.01.2021.
 **debit / credit indicator (Soll/Haben-Kennzeichen)**
 
 The debit / credit indicator for each record is created based on data in column `Umsatz` according to the following rule
+
 *   debit / credit indicator = "S" if the content of  `Umsatz` is greater or equal to zero
 *   debit / credit indicator = "H" if the content of  `Umsatz` is less than zero
 
@@ -231,9 +241,7 @@ and the `Umsatz` amount will be inverted. In this way, we ensure that entries in
 ## ProSaldo Import Settings (Import Textdateien)
 
 When importing in MonkeyOffice FIBU by ProSaldo,
-use **Import Textdateien** and the following settings
-
-### General
+use **Import Textdateien** and the following general settings
 
 | Parameter                     |   Wert                |
 | ----------------------------- | --------------------- |    

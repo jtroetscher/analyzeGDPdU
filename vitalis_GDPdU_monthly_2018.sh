@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Check for empty arguments. We need a text file (database dump) as input
+# Check for empty arguments. We need a text file as input
 #
 if [ -z "$1" ] ; then
     printf "\nusage: %s <GDPdU_export_file>%s\n\n" $(basename $0)
@@ -15,7 +15,6 @@ bText="Korrekturbuchung"
 arrVar=()
 
 # add search patterns as shell array elements
-# the following bon numbers are missing in GDPdU export for 2018
 
 arrVar+=("2018-01-01 2018-02-01")
 arrVar+=("2018-02-01 2018-03-01")
@@ -66,7 +65,7 @@ outfile+="_Sammelbuchungen_2018_monatlich.csv"
 # tail -n +2 is required to skip the first line on macOS
 # tail -q suppresses the printout of filenames
 
-printf "\n#### Concatenating collective Postings to %s\n\n" $outfile
+printf "\n#### Concatenating collective postings to %s\n\n" $outfile
 
 head -1 "${sbfiles[0]}" > "${outfile}"
 tail -n +2 -q "${sbfiles[@]}" >> "${outfile}"
