@@ -5,8 +5,8 @@ import datetime as dt
 import pandas as pd
 import numpy as np
 
-programVersion = '1.5.1'
-lastModified = '21-01-2021'
+programVersion = '1.6'
+lastModified = '27-02-2021'
 
 #
 # PURPOSE: autocomplete GDPdU to allow import in MonkeyOffice
@@ -77,21 +77,37 @@ dRequiredFields = {
 
 dTaxKey = {
     '0': '-',           # Umsatzsteuerfrei
+    '0,00': '-',           # Umsatzsteuerfrei
     '5': 'USt5',        # Umsatzsteuer 5% (see note below)
+    '5,00': 'USt5',        # Umsatzsteuer 5% (see note below)
     '7': 'USt7',        # Umsatzsteuer 7%
+    '7,00': 'USt7',        # Umsatzsteuer 7%
     '16': 'USt16',      # Umsatzsteuer 16% (see note below)
-    '19': 'USt19'       # Umsatzsteuer 19%
+    '16,00': 'USt16',      # Umsatzsteuer 16% (see note below)
+    '19': 'USt19',       # Umsatzsteuer 19%
+    '19,00': 'USt19'       # Umsatzsteuer 19%
 }
+
+# The following accounts are in use by Steuerbüro Boehm&Lerch
+# 4105 - Steuerfreie Umsätze nach §4Nr. 12 UStG (Vermietung und Verpachtung)
+# 4200 - Erlöse Medizinische Massage
+# 4301 Erlöse 7%USt Imbiss
+# 4302 Erlöse 7%USt Kiosk
+# 4400 Erlöse 19% USt Sauna
+# 4401 Erlöse 19 %USt Imbiss
+# 4402 Erlöse 19% USt Kiosk
+# 4403 Erlöse 19 %USt Almterasse/Feiern
+# 4499 Nebenerlöse (Bezug zu Materialaufwand)
 
 # Dictionary Prosaldo Steuerschlüssel -> Erlöskonto Dienstleistungen
 
 dCAService = {
     '-': '4001',        # Umsatzsteuerfrei
     '50': '4001',       # Steuersatz nicht definiert
-    'USt5': '4301',     # Umsatzsteuer 5%
-    'USt7': '4301',     # Umsatzsteuer 7%
-    'USt16': '4401',    # Umsatzsteuer 16%
-    'USt19': '4401'     # Umsatzsteuer 19%
+    'USt5': '4304',     # Umsatzsteuer 5%
+    'USt7': '4304',     # Umsatzsteuer 7%
+    'USt16': '4404',    # Umsatzsteuer 16%
+    'USt19': '4404'     # Umsatzsteuer 19%
 }
 
 # Dictionary Prosaldo Steuerschlüssel -> Erlöskonto Waren
@@ -99,10 +115,10 @@ dCAService = {
 dCAGoods = {
     '-': '4000',        # Umsatzsteuerfrei
     '50': '4000',       # Steuersatz nicht definiert
-    'USt5': '4300',     # Umsatzsteuer 5%
-    'USt7': '4300',     # Umsatzsteuer 7%
-    'USt16': '4400',    # Umsatzsteuer 16%
-    'USt19': '4400'     # Umsatzsteuer 19%
+    'USt5': '4305',     # Umsatzsteuer 5%
+    'USt7': '4305',     # Umsatzsteuer 7%
+    'USt16': '4405',    # Umsatzsteuer 16%
+    'USt19': '4405'     # Umsatzsteuer 19%
 }
 
 # read csv file containing all GDPdU output
@@ -210,6 +226,13 @@ def convertColumnToFloat (df, cName):
     print("\tNeuer Datentyp für Spalte {} ist float".format(cName))
     df[cName] = df[cName].str.replace('.','').str.replace(',','.').astype(float)
 
+# converting string to integer
+
+def convertColumnToInteger (df, cName):
+
+    print("\tNeuer Datentyp für Spalte {} ist integer".format(cName))
+    df[cName] = df[cName].astype(int)
+
 #
 # Look up the ProSaldo TaxKey,
 # print warning if key is not defined.
@@ -252,6 +275,15 @@ def getCreditAccountGoods (taxKey):
         pCreditAccount = defAccountNo
 
     return pCreditAccount
+
+#
+# print dictionaries for goods and services
+#
+def printAccountDict(a_dict, prefix):
+    print ("{:<8} {:<20} ".format('Konto','Beschreibung und ST-SL'))
+    for k, v in a_dict.items():
+        accNo = v
+        print ("{:<8} {:<20}".format(accNo, prefix + ' ' + k))
 
 
 # The following modificactions are made to the dataframe containing the GDPdU Export
@@ -319,9 +351,9 @@ def preprocessDataframe(da):
 
 # Convert column 'Anzahl' to datatype integer
 
-    print("\tNeuer Datentyp für Spalte {} ist integer".format('Anzahl'))
-
-    df['Anzahl'] = df['Anzahl'].astype(int)
+#    print("\tNeuer Datentyp für Spalte {} ist integer".format('Anzahl'))
+#    df['Anzahl'] = df['Anzahl'].astype(int)
+    convertColumnToInteger(df,'Anzahl')
 
 # Convert columns 'Umsatz Br.' 'Einzel VK Br.' 'MwSt' to datatype float
 
@@ -396,7 +428,10 @@ def preprocessDataframe(da):
 
     print ("\n ### {}\n".format("Generiere kombinierte Date-Time Spalte "))
 
-    df['DateTime'] = pd.to_datetime(df['Datum'] + ' ' + df['Uhrzeit'], format='%d.%m.%Y %H:%M:%S')
+#  format used in Friseursoftware V4.8 by Kühnemann Informatik, 2017
+#    df['DateTime'] = pd.to_datetime(df['Datum'] + ' ' + df['Uhrzeit'], format='%d.%m.%Y %H:%M:%S')
+#  the format has changed in the latest version
+    df['DateTime'] = pd.to_datetime(df['Datum'] + ' ' + df['Uhrzeit'], format='%d-%m-%y %H:%M:%S')
 
 # Hinweis: die Option mit infer_datetime_format=True ist erheblich langsamer!!
 #
@@ -464,6 +499,11 @@ def preprocessDataframe(da):
 def collectivePostings(postingText, heading, df):
 
     dftx = pd.DataFrame() #creates a new dataframe that's empty
+
+    print("\n###### Kontenrahmen für Sammelbuchungen Dienstleistungen\n")
+    printAccountDict(dCAService, "Erlöse Dienstleistungen")
+    print("\n###### Kontenrahmen für Sammelbuchungen Waren\n")
+    printAccountDict(dCAGoods, "Erlöse Waren")
 
     # process subset of transactions with 'Soll/Haben' == 'H'
 
