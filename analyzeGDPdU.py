@@ -285,6 +285,14 @@ def printAccountDict(a_dict, prefix):
         accNo = v
         print ("{:<8} {:<20}".format(accNo, prefix + ' ' + k))
 
+# generator function to completely hide/abstract the iteration over the range of dates:
+
+def daterange(sdate, edate):
+    start_date = sdate.replace(minute=0, hour=0, second=0)
+    end_date = edate.replace(minute=0, hour=0, second=0)
+    for n in range(int((end_date - start_date).days+1)):
+        yield start_date + dt.timedelta(n)
+
 # The values in Bon_Nummer should be increasing by zero or one
 # (same Bon or next Bon). The first value will be NaN.
 # If everything is OK then uniqueDiff should be [nan,  1.,  0. ]
@@ -463,6 +471,8 @@ def preprocessDataframe(da):
 #  the format has changed in the latest version
     df['DateTime'] = pd.to_datetime(df['Datum'] + ' ' + df['Uhrzeit'], format='%d-%m-%y %H:%M:%S')
 
+
+
 # Hinweis: die Option mit infer_datetime_format=True ist erheblich langsamer!!
 #
 #    df['DateTime'] = pd.to_datetime(df['Datum'] + ' ' + df['Uhrzeit'], infer_datetime_format=True)
@@ -481,6 +491,16 @@ def preprocessDataframe(da):
 #    print(df.columns.values.tolist())
 
     checkBonNummer(df)
+
+# create index
+
+    df.index = pd.to_datetime(df['DateTime'], format='%d-%m-%y %H:%M:%S')
+    end_date = df.index[-1]
+    start_date = df.index[0]
+    print(f"Startdate: {start_date}")
+    print(f"Enddate:   {end_date}")
+
+#    print(df)
 
     return df
 
@@ -528,83 +548,75 @@ def preprocessDataframe(da):
 # Wenn das Flag writeTX gesetzt ist (durch die verbose option)
 # wird auch eine CSV Datei mit den selektierten Transaktionen geschrieben.
 
-def collectivePostings(postingText, heading, df):
+def collectivePostings(postingText, heading, df, verbose: bool = False):
 
-    dftx = pd.DataFrame() #creates a new dataframe that's empty
+    dftx = pd.DataFrame() # creates a new dataframe that's empty
+    dfcp = pd.DataFrame() # creates a new dataframe that's empty
 
-    print("\n###### Kontenrahmen für Sammelbuchungen Dienstleistungen\n")
-    printAccountDict(dCAService, "Erlöse Dienstleistungen")
-    print("\n###### Kontenrahmen für Sammelbuchungen Waren\n")
-    printAccountDict(dCAGoods, "Erlöse Waren")
+    if not df.empty:
 
-    # process subset of transactions with 'Soll/Haben' == 'H'
+        lasttx = df.index[-1] # timestamp of last transaction in dataframe
 
-    mask = df['Soll/Haben'] == 'H'
-    dfh = df[mask].copy()
-    print("\n###### Haben-Transaktionen\n")
-    print("Gesamt Anz. Haben Transaktionen\t {:>8d}".format( dfh.shape[0]))
-    uniqueHKonto = dfh['Gegenkonto'].unique()
-    uniqueHKonto = np.sort(uniqueHKonto)
-    newHDF = pd.DataFrame() #creates a new dataframe that's empty
+        # process subset of transactions with 'Soll/Haben' == 'H'
 
-    for eKto in uniqueHKonto:
-        is_eKto = dfh['Gegenkonto']==eKto
-        df_eKto = dfh[is_eKto].copy()
-        dftx = dftx.append(df_eKto)
-        df_salden = df_eKto.groupby(['Konto','St-SL']).agg({'Umsatz': "sum",'DateTime' : ['min', 'max'] }).reset_index()
+        mask = df['Soll/Haben'] == 'H'
+        dfh = df[mask].copy()
+        if verbose:
+            print("\n###### Haben-Transaktionen\n")
+            print("Gesamt Anz. Haben Transaktionen\t {:>8d}".format( dfh.shape[0]))
+        uniqueHKonto = dfh['Gegenkonto'].unique()
+        uniqueHKonto = np.sort(uniqueHKonto)
 
-        if not df_salden.empty:
-            print("\n###### Haben-Sammelbuchungen Konto {}\n".format(eKto))
-            total = df_salden['Umsatz'].sum().values[0]
-            df_salden.columns = [' '.join(col).strip() for col in df_salden.columns.values]
-            df_salden.insert(1, 'Gegenkonto', eKto)
-            print(df_salden)
-            print("\n{: >8}{: >10}\t\t{:.2f}".format('Summe', eKto, total))
-            newHDF = newHDF.append(df_salden) # Gegenkonto soll erhalten bleiben!
+        for eKto in uniqueHKonto:
+            is_eKto = dfh['Gegenkonto']==eKto
+            df_eKto = dfh[is_eKto].copy()
+            dftx = dftx.append(df_eKto)
+            df_salden = df_eKto.groupby(['Konto','St-SL']).agg({'Umsatz': "sum"}).reset_index()
 
-    # process subset of transactions with 'Soll/Haben' == 'S'
+            if not df_salden.empty:
+                if verbose:
+                    print("\n###### Haben-Sammelbuchungen Konto {}\n".format(eKto))
+                total = df_salden['Umsatz'].sum()
+                df_salden.insert(1, 'Gegenkonto', eKto)
+                df_salden = df_salden.rename(columns={"Umsatz": "Betrag"}, errors="raise")
+                if verbose:
+                    print(df_salden)
+                    print("\n{: >8}{: >10}\t\t{:.2f}".format('Summe', eKto, total))
+                dfcp = dfcp.append(df_salden, ignore_index = True) # Gegenkonto soll erhalten bleiben!
 
-    mask = df['Soll/Haben'] == 'S'
-    dfs = df[mask].copy()
-    print("\n###### Soll-Transaktionen\n")
-    print("Gesamt Anz. Soll Transaktionen\t {:>8d}".format( dfs.shape[0]))
-    uniqueSKonto = dfs['Konto'].unique()
-    uniqueSKonto = np.sort(uniqueSKonto)
-    newSDF = pd.DataFrame() #creates a new dataframe that's empty
+        # process subset of transactions with 'Soll/Haben' == 'S'
 
-    for eKto in uniqueHKonto:
-        is_eKto = dfs['Konto']==eKto
-        df_eKto = dfs[is_eKto].copy()
-        dftx = dftx.append(df_eKto)
-        df_salden = df_eKto.groupby(['Gegenkonto','St-SL']).agg({'Umsatz': "sum",'DateTime' : ['min', 'max'] }).reset_index()
+        mask = df['Soll/Haben'] == 'S'
+        dfs = df[mask].copy()
+        if verbose:
+            print("\n###### Soll-Transaktionen\n")
+            print("Gesamt Anz. Soll Transaktionen\t {:>8d}".format( dfs.shape[0]))
+        uniqueSKonto = dfs['Konto'].unique()
+        uniqueSKonto = np.sort(uniqueSKonto)
 
-        if not df_salden.empty:
-            print("\n###### Soll-Sammelbuchungen Konto {}\n".format(eKto))
-            total = df_salden['Umsatz'].sum().values[0]
-            df_salden.columns = [' '.join(col).strip() for col in df_salden.columns.values]
-            df_salden.insert(0, 'Konto', eKto)
-            print(df_salden)
-            print("\n{: >8}{: >10}\t\t{:.2f}".format('Summe', eKto, total))
-            newSDF = newSDF.append(df_salden) # Gegenkonto soll erhalten bleiben!
+        for eKto in uniqueHKonto:
+            is_eKto = dfs['Konto']==eKto
+            df_eKto = dfs[is_eKto].copy()
+            dftx = dftx.append(df_eKto)
+            df_salden = df_eKto.groupby(['Gegenkonto','St-SL']).agg({'Umsatz': "sum"}).reset_index()
 
-    #   combine the two dataframes
+            if not df_salden.empty:
+                if verbose:
+                    print("\n###### Soll-Sammelbuchungen Konto {}\n".format(eKto))
+                total = df_salden['Umsatz'].sum()
+                df_salden.insert(0, 'Konto', eKto)
+                df_salden = df_salden.rename(columns={"Umsatz": "Betrag"}, errors="raise")
+                if verbose:
+                    print(df_salden)
+                    print("\n{: >8}{: >10}\t\t{:.2f}".format('Summe', eKto, total))
+                dfcp = dfcp.append(df_salden, ignore_index = True) # Gegenkonto soll erhalten bleiben!
 
-    dfcp = pd.concat([newHDF, newSDF])
-    dfcp = dfcp.sort_index()
+        dfcp = dfcp.sort_index()
 
     #   Create new colums
 
-    dfcp['Datum'] = dfcp['DateTime max'].dt.strftime('%d.%m.%Y')
-    dfcp['Text'] = postingText + heading
-
-    # drop columns that are no longer needed
-
-    dfcp.drop('DateTime max', axis=1, inplace=True)
-    dfcp.drop('DateTime min', axis=1, inplace=True)
-
-    # rename columns
-
-    dfcp = dfcp.rename({"Umsatz sum": "Betrag"}, errors="raise", axis='columns')
+        dfcp['Datum'] = lasttx.strftime('%d.%m.%Y')
+        dfcp['Text'] = postingText + heading
 
     return dfcp, dftx
 
@@ -623,14 +635,12 @@ def selectReceiptDate(df, start_date, end_date):
 
     try:
         dt.datetime.strptime(start_date, format)
-        print("\tStart Date {} OK".format(start_date))
     except ValueError:
         print("\tStart Date {} format is incorrect. It should be YYYY-MM-DD".format(start_date))
         exit(1)
 
     try:
         dt.datetime.strptime(end_date, format)
-        print("\tEnd Date   {} OK".format(end_date))
     except ValueError:
         print("\tEnd Date   {} format is incorrect. It should be YYYY-MM-DD".format(end_date))
         exit(1)
@@ -658,6 +668,8 @@ def main():
         help='Analyse zwischen zwei Daten  (Format: YYYY-MM-DD YYYY-MM-DD) Datum > start_date 00:00:00 & Datum <= end_date 00:00:00',
         required=False)
     parser.add_argument('-t','--text', help='Buchungstext Sammelbuchungen', required=False, default='Sammelbuchung')
+    parser.add_argument('-d','--daily', help='Sammelbuchung für jeden Tag im Zeitraum erzeugen.',
+        required=False, action='store_true', default=False)
     parser.add_argument('-v','--verbose', help='Weitere Information ausgeben: Zusätzlich CSV Datei mit Transaktionen schreiben',
         required=False, action='store_true', default=False)
 
@@ -669,10 +681,8 @@ def main():
     dfc = pd.DataFrame() #creates a new dataframe that's empty
 
     if (args.period is None):
-        dfp = preprocessDataframe(df)
+        dfpp = preprocessDataframe(df)
         heading = '_All'
-        writeCSV(args.file, '_' + sxImportProSaldo  + heading, dfp)
-        dfc, dfi = collectivePostings(args.text, heading, dfp)
     else:
         print ("\n###### Analyse mit Filtern:\n")
         start_date, end_date = args.period
@@ -680,8 +690,37 @@ def main():
         print ("Periode vom {} bis {} ".format(start_date, end_date))
         dfp = preprocessDataframe(df)
         dfpp = selectReceiptDate(dfp, start_date, end_date)
-        writeCSV(args.file, '_' + sxImportProSaldo  + heading, dfpp)
-        dfc, dfi = collectivePostings(args.text, heading, dfpp)
+
+    writeCSV(args.file, '_' + sxImportProSaldo  + heading, dfpp)
+
+    print("\n###### Kontenrahmen für Sammelbuchungen Dienstleistungen\n")
+    printAccountDict(dCAService, "Erlöse Dienstleistungen")
+    print("\n###### Kontenrahmen für Sammelbuchungen Waren\n")
+    printAccountDict(dCAGoods, "Erlöse Waren")
+
+    if (args.daily):
+        print ("\n###### Sammelbuchungen für jeden Tag erzeugen:\n")
+        end_date = dfpp.index[-1]
+        start_date = dfpp.index[0]
+        print(f"\tStartdate: {start_date}")
+        print(f"\tEnddate:   {end_date}\n")
+
+        for sdate in daterange(start_date, end_date):
+            edate = sdate + dt.timedelta(days=1)
+            strEndDate = edate.strftime('%Y-%m-%d')
+            strStartDate = sdate.strftime('%Y-%m-%d')
+            print(f"from {sdate} to {edate}", end='\r')
+            dfi_daily = pd.DataFrame() #creates a new dataframe that's empty
+            dfc_daily = pd.DataFrame() #creates a new dataframe that's empty
+            dfpp_daily = selectReceiptDate(dfpp, strStartDate, strEndDate)
+            dfc_daily, dfi_daily = collectivePostings(args.text, ' ' + strEndDate, dfpp_daily, verbose = args.verbose)
+            if not dfc_daily.empty:
+                dfc = dfc.append(dfc_daily, ignore_index = True)
+            if not dfi_daily.empty:
+                dfi = dfi.append(dfi_daily, ignore_index = True)
+        print(f"Tägliche Sammelbuchungen von {start_date} bis {end_date} wurden erzeugt\n")
+    else:
+        dfc, dfi = collectivePostings(args.text, heading, dfpp, verbose=True)
 
     writeCSV(args.file, '_' + sxCollectivePostings + heading, dfc)
     if args.verbose:
