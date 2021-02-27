@@ -285,6 +285,31 @@ def printAccountDict(a_dict, prefix):
         accNo = v
         print ("{:<8} {:<20}".format(accNo, prefix + ' ' + k))
 
+# The values in Bon_Nummer should be increasing by zero or one
+# (same Bon or next Bon). The first value will be NaN.
+# If everything is OK then uniqueDiff should be [nan  1.  0. ]
+# if there is a gap we have [nan  1.  0.  2.] or worse
+
+def checkBonNummer(da):
+
+    ngaps = 0
+    df = da.copy() # deep copy of dataframe
+    df['DiffBN'] = df['Bon_Nummer'].diff()
+    print("\n###### Prüfe Bon Nummern auf Lücken\n")
+    uniqueDiff = df['DiffBN'].unique()
+#    print("{}".format(uniqueDiff))
+
+    for gap in uniqueDiff:
+        if (gap > 1):
+            mask = df['DiffBN'] == gap
+            dfgap = df[mask].copy()
+            print(dfgap)
+            ngaps += dfgap.shape[0] * (gap - 1)
+
+    if (ngaps > 0):
+        print(f"\n###### WARNUNG: Es wurden {ngaps:.0f} Lücken in den Bon Nummern gefunden\n")
+    else:
+        print(f"\n###### OK: Es wurden keine Lücken in den Bon Nummern gefunden\n")
 
 # The following modificactions are made to the dataframe containing the GDPdU Export
 # 1.  strip whitespace from all strings
@@ -351,9 +376,8 @@ def preprocessDataframe(da):
 
 # Convert column 'Anzahl' to datatype integer
 
-#    print("\tNeuer Datentyp für Spalte {} ist integer".format('Anzahl'))
-#    df['Anzahl'] = df['Anzahl'].astype(int)
     convertColumnToInteger(df,'Anzahl')
+    convertColumnToInteger(df,'Bon_Nummer')
 
 # Convert columns 'Umsatz Br.' 'Einzel VK Br.' 'MwSt' to datatype float
 
@@ -449,6 +473,8 @@ def preprocessDataframe(da):
         print("Bitte die Spalte Soll/Haben-Kennzeichen im GDPdU Export prüfen ")
 
 #    print(df.columns.values.tolist())
+
+    checkBonNummer(df)
 
     return df
 
