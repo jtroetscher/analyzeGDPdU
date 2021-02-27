@@ -5,7 +5,7 @@ import datetime as dt
 import pandas as pd
 import numpy as np
 
-programVersion = '1.6'
+programVersion = '1.7'
 lastModified = '27-02-2021'
 
 #
@@ -302,6 +302,7 @@ def checkBonNummer(da):
 
     print("\n###### Prüfe Bon Nummern auf Lücken\n")
     df = da.copy() # deep copy of dataframe
+    df = df.sort_values(by=['Bon_Nummer'])
     df['DiffBN'] = df['Bon_Nummer'].diff()
     uniqueDiff = df['DiffBN'].unique()
 # remove expected values
@@ -494,7 +495,9 @@ def preprocessDataframe(da):
 
 # create index
 
+    df = df.sort_values(by=['Bon_Nummer'])
     df.index = pd.to_datetime(df['DateTime'], format='%d-%m-%y %H:%M:%S')
+    df = df.sort_index()
     end_date = df.index[-1]
     start_date = df.index[0]
     print(f"Startdate: {start_date}")
