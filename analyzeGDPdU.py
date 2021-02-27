@@ -287,27 +287,33 @@ def printAccountDict(a_dict, prefix):
 
 # The values in Bon_Nummer should be increasing by zero or one
 # (same Bon or next Bon). The first value will be NaN.
-# If everything is OK then uniqueDiff should be [nan  1.  0. ]
-# if there is a gap we have [nan  1.  0.  2.] or worse
+# If everything is OK then uniqueDiff should be [nan,  1.,  0. ]
+# if there are gap we will have [nan,  1.,  0.,  2.] or worse
 
 def checkBonNummer(da):
 
-    ngaps = 0
+    print("\n###### Prüfe Bon Nummern auf Lücken\n")
     df = da.copy() # deep copy of dataframe
     df['DiffBN'] = df['Bon_Nummer'].diff()
-    print("\n###### Prüfe Bon Nummern auf Lücken\n")
     uniqueDiff = df['DiffBN'].unique()
-#    print("{}".format(uniqueDiff))
-
-    for gap in uniqueDiff:
-        if (gap > 1):
+# remove expected values
+    plist = list(set(uniqueDiff) - set([ 0., 1.]))
+# plist contains [nan, 2.0] if we have gaps !
+    ngaps = 0
+    missingBons = []
+    for gap in plist:
+        if (not np.isnan(gap)):
             mask = df['DiffBN'] == gap
-            dfgap = df[mask].copy()
+            dfgap = df[mask].copy() # all lines with gap
+            for i in dfgap.index:
+                missing = int(df.at[i, 'Bon_Nummer'] - gap + 1)
+                missingBons.append(missing)
             print(dfgap)
-            ngaps += dfgap.shape[0] * (gap - 1)
+            ngaps += dfgap.shape[0] * abs(gap - 1)
 
     if (ngaps > 0):
         print(f"\n###### WARNUNG: Es wurden {ngaps:.0f} Lücken in den Bon Nummern gefunden\n")
+        print(f"Die folgenden Bon Nummern fehlen: {missingBons}\n")
     else:
         print(f"\n###### OK: Es wurden keine Lücken in den Bon Nummern gefunden\n")
 
