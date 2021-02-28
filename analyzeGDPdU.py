@@ -5,8 +5,8 @@ import datetime as dt
 import pandas as pd
 import numpy as np
 
-programVersion = '1.7'
-lastModified = '27-02-2021'
+programVersion = '1.8'
+lastModified = '28-02-2021'
 
 #
 # PURPOSE: autocomplete GDPdU to allow import in MonkeyOffice
@@ -290,7 +290,7 @@ def printAccountDict(a_dict, prefix):
 def daterange(sdate, edate):
     start_date = sdate.replace(minute=0, hour=0, second=0)
     end_date = edate.replace(minute=0, hour=0, second=0)
-    for n in range(int((end_date - start_date).days+1)):
+    for n in range(int((end_date - start_date).days)):
         yield start_date + dt.timedelta(n)
 
 # The values in Bon_Nummer should be increasing by zero or one
@@ -558,7 +558,7 @@ def collectivePostings(postingText, heading, df, verbose: bool = False):
 
     if not df.empty:
 
-        lasttx = df.index[-1] # timestamp of last transaction in dataframe
+        firsttx = df.index[0] # timestamp of first transaction in dataframe
 
         # process subset of transactions with 'Soll/Haben' == 'H'
 
@@ -588,6 +588,7 @@ def collectivePostings(postingText, heading, df, verbose: bool = False):
                 dfcp = dfcp.append(df_salden, ignore_index = True) # Gegenkonto soll erhalten bleiben!
 
         # process subset of transactions with 'Soll/Haben' == 'S'
+#        dfs = df[~mask].copy()     # could also use inverted mask
 
         mask = df['Soll/Haben'] == 'S'
         dfs = df[mask].copy()
@@ -597,7 +598,7 @@ def collectivePostings(postingText, heading, df, verbose: bool = False):
         uniqueSKonto = dfs['Konto'].unique()
         uniqueSKonto = np.sort(uniqueSKonto)
 
-        for eKto in uniqueHKonto:
+        for eKto in uniqueSKonto:
             is_eKto = dfs['Konto']==eKto
             df_eKto = dfs[is_eKto].copy()
             dftx = dftx.append(df_eKto)
@@ -618,7 +619,7 @@ def collectivePostings(postingText, heading, df, verbose: bool = False):
 
     #   Create new colums
 
-        dfcp['Datum'] = lasttx.strftime('%d.%m.%Y')
+        dfcp['Datum'] = firsttx.strftime('%d.%m.%Y')
         dfcp['Text'] = postingText + heading
 
     return dfcp, dftx
@@ -703,8 +704,10 @@ def main():
 
     if (args.daily):
         print ("\n###### Sammelbuchungen für jeden Tag erzeugen:\n")
-        end_date = dfpp.index[-1]
-        start_date = dfpp.index[0]
+        timestamp = dfpp.index[-1] + dt.timedelta(days=1)
+        end_date  = timestamp.replace(hour=0, minute=0, second=0)
+        timestamp = dfpp.index[0]
+        start_date = timestamp.replace(hour=0, minute=0, second=0)
         print(f"\tStartdate: {start_date}")
         print(f"\tEnddate:   {end_date}\n")
 
@@ -712,16 +715,23 @@ def main():
             edate = sdate + dt.timedelta(days=1)
             strEndDate = edate.strftime('%Y-%m-%d')
             strStartDate = sdate.strftime('%Y-%m-%d')
-            print(f"from {sdate} to {edate}", end='\r')
+#            print(f"from {sdate} to {edate}", end='\r')
+            print(f"from {sdate} to {edate}:", end='')
             dfi_daily = pd.DataFrame() #creates a new dataframe that's empty
             dfc_daily = pd.DataFrame() #creates a new dataframe that's empty
             dfpp_daily = selectReceiptDate(dfpp, strStartDate, strEndDate)
             dfc_daily, dfi_daily = collectivePostings(args.text, ' ' + strEndDate, dfpp_daily, verbose = args.verbose)
             if not dfc_daily.empty:
                 dfc = dfc.append(dfc_daily, ignore_index = True)
+                print(f"{dfc_daily.shape[0]} Sammelbuchungen")
+            else:
+                print(f"0 Sammelbuchungen")
             if not dfi_daily.empty:
                 dfi = dfi.append(dfi_daily, ignore_index = True)
-        print(f"Tägliche Sammelbuchungen von {start_date} bis {end_date} wurden erzeugt\n")
+        print(f"\nTägliche Sammelbuchungen von {start_date} bis {end_date} wurden erzeugt\n")
+        if not dfc.empty:
+            dfsums = dfc.groupby(['Konto','Gegenkonto']).agg({'Betrag': "sum"}).reset_index()
+            print(dfsums)
     else:
         dfc, dfi = collectivePostings(args.text, heading, dfpp, verbose=True)
 
