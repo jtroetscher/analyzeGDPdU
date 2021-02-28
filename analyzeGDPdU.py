@@ -715,20 +715,19 @@ def main():
             edate = sdate + dt.timedelta(days=1)
             strEndDate = edate.strftime('%Y-%m-%d')
             strStartDate = sdate.strftime('%Y-%m-%d')
-#            print(f"from {sdate} to {edate}", end='\r')
             print(f"from {sdate} to {edate}:", end='')
             dfi_daily = pd.DataFrame() #creates a new dataframe that's empty
             dfc_daily = pd.DataFrame() #creates a new dataframe that's empty
             dfpp_daily = selectReceiptDate(dfpp, strStartDate, strEndDate)
-            dfc_daily, dfi_daily = collectivePostings(args.text, ' ' + strEndDate, dfpp_daily, verbose = args.verbose)
+            dfc_daily, dfi_daily = collectivePostings(args.text, ' ' + strStartDate, dfpp_daily, verbose = args.verbose)
             if not dfc_daily.empty:
                 dfc = dfc.append(dfc_daily, ignore_index = True)
-                print(f"{dfc_daily.shape[0]} Sammelbuchungen")
+                print(f"{dfc_daily.shape[0]} Sammelbuchungen ", end='\r')
             else:
-                print(f"0 Sammelbuchungen")
+                print(f"0 Sammelbuchungen!", end='\r')
             if not dfi_daily.empty:
                 dfi = dfi.append(dfi_daily, ignore_index = True)
-        print(f"\nTägliche Sammelbuchungen von {start_date} bis {end_date} wurden erzeugt\n")
+        print(f"\n\nTägliche Sammelbuchungen von {start_date} bis {end_date} wurden erzeugt\n")
         if not dfc.empty:
             dfsums = dfc.groupby(['Konto','Gegenkonto']).agg({'Betrag': "sum"}).reset_index()
             print(dfsums)
