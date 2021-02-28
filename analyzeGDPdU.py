@@ -77,15 +77,15 @@ dRequiredFields = {
 
 dTaxKey = {
     '0': '-',           # Umsatzsteuerfrei
-    '0,00': '-',           # Umsatzsteuerfrei
+    '0,00': '-',        # Umsatzsteuerfrei
     '5': 'USt5',        # Umsatzsteuer 5% (see note below)
-    '5,00': 'USt5',        # Umsatzsteuer 5% (see note below)
+    '5,00': 'USt5',     # Umsatzsteuer 5% (see note below)
     '7': 'USt7',        # Umsatzsteuer 7%
-    '7,00': 'USt7',        # Umsatzsteuer 7%
+    '7,00': 'USt7',     # Umsatzsteuer 7%
     '16': 'USt16',      # Umsatzsteuer 16% (see note below)
-    '16,00': 'USt16',      # Umsatzsteuer 16% (see note below)
-    '19': 'USt19',       # Umsatzsteuer 19%
-    '19,00': 'USt19'       # Umsatzsteuer 19%
+    '16,00': 'USt16',   # Umsatzsteuer 16% (see note below)
+    '19': 'USt19',      # Umsatzsteuer 19%
+    '19,00': 'USt19'    # Umsatzsteuer 19%
 }
 
 # The following accounts are in use by Steuerbüro Boehm&Lerch

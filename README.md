@@ -24,8 +24,8 @@ Python version 3.8.3.
 
 
 ```
-usage: analyzeGDPdU.py [-h] -f FILE [-p start_date end_date] [-t TEXT] [-v]
-
+usage: analyzeGDPdU.py [-h] -f FILE [-p start_date end_date] [-t TEXT] [-d] [-v]
+Salden per Konto aus dem GDPdU Export von KI-Kasse
 optional arguments:
 
   -h, --help            show this help message and exit
@@ -36,6 +36,7 @@ optional arguments:
                         Datum > start_date 00:00:00 &
                         Datum <= end_date 00:00:00
   -t TEXT, --text TEXT  Buchungstext Sammelbuchungen
+  -d, --daily           Sammelbuchung für jeden Tag im Zeitraum erzeugen.
   -v, --verbose         Weitere Information ausgeben:
                         Zusätzlich CSV Datei mit Transaktionen schreiben
 ```
@@ -169,15 +170,15 @@ as the key and take the value from the following dictionary
 
 ```
 dCAGoods = {
-    '-':     '4000',   # Umsatzsteuerfrei
-    '50':    '4000',   # Umsatzsteuerfrei
-    'USt5':  '4300',   # Umsatzsteuer 5%
-    'USt7':  '4300',   # Umsatzsteuer 7%
-    'USt16': '4400',   # Umsatzsteuer 16%
-    'USt19': '4400'    # Umsatzsteuer 19%
+    '-': '4000',        # Umsatzsteuerfrei
+    '50': '4000',       # Steuersatz nicht definiert
+    'USt5': '4305',     # Umsatzsteuer 5%
+    'USt7': '4305',     # Umsatzsteuer 7%
+    'USt16': '4405',    # Umsatzsteuer 16%
+    'USt19': '4405'     # Umsatzsteuer 19%
 }
-
 ```
+
 We create a subset of the dataframe to contain only transactions with
 `Dst/Ware` = `Dienst`.
 
@@ -187,12 +188,12 @@ as the key and take the value from the following dictionary
 
 ```
 dCAService = {
-    '-':     '4001',   # Umsatzsteuerfrei
-    '50':    '4001',   # Umsatzsteuerfrei
-    'USt5':  '4301',   # Umsatzsteuer 5%
-    'USt7':  '4301',   # Umsatzsteuer 7%
-    'USt16': '4401',   # Umsatzsteuer 16%
-    'USt19': '4401'    # Umsatzsteuer 19%
+    '-': '4001',        # Umsatzsteuerfrei
+    '50': '4001',       # Steuersatz nicht definiert
+    'USt5': '4304',     # Umsatzsteuer 5%
+    'USt7': '4304',     # Umsatzsteuer 7%
+    'USt16': '4404',    # Umsatzsteuer 16%
+    'USt19': '4404'     # Umsatzsteuer 19%
 }
 ```
 
@@ -209,11 +210,16 @@ in column `MwSt-Satz` as the key and take the value from the following dictionar
 
 ```
 dTaxKey = {
-    '0': '-',       # Umsatzsteuerfrei
-    '5': 'USt5',    # Umsatzsteuer 5% (see note below)
-    '7': 'USt7',    # Umsatzsteuer 7%
-    '16': 'USt16'   # Umsatzsteuer 16% (see note below)
-    '19': 'USt19'   # Umsatzsteuer 19%
+    '0': '-',           # Umsatzsteuerfrei
+    '0,00': '-',        # Umsatzsteuerfrei
+    '5': 'USt5',        # Umsatzsteuer 5% (see note below)
+    '5,00': 'USt5',     # Umsatzsteuer 5% (see note below)
+    '7': 'USt7',        # Umsatzsteuer 7%
+    '7,00': 'USt7',     # Umsatzsteuer 7%
+    '16': 'USt16',      # Umsatzsteuer 16% (see note below)
+    '16,00': 'USt16',   # Umsatzsteuer 16% (see note below)
+    '19': 'USt19',      # Umsatzsteuer 19%
+    '19,00': 'USt19'    # Umsatzsteuer 19%
 }
 ```
 
