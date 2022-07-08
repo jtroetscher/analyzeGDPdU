@@ -4,9 +4,11 @@ import os, sys, argparse
 import datetime as dt
 import pandas as pd
 import numpy as np
+import csv # QUOTE_MINIMAL, QUOTE_ALL, QUOTE_NONE, and QUOTE_NONNUMERIC
 
-programVersion = '1.8'
-lastModified = '28-02-2021'
+
+programVersion = '1.9'
+lastModified = '08-07-2022'
 
 #
 # PURPOSE: autocomplete GDPdU to allow import in MonkeyOffice
@@ -121,6 +123,11 @@ dCAGoods = {
     'USt19': '4405'     # Umsatzsteuer 19%
 }
 
+# Predefined list of prodcuts to calculate sales by product
+# Selection criteria: column 'Konto' must match
+
+topProducts = ['Erwachsene', 'Feierabend/2 Std.', 'Studenten' ]
+
 # read csv file containing all GDPdU output
 # we read required columns only
 # we read all values as string and do the datatype conversion later
@@ -198,10 +205,10 @@ def readCSV_All(infile):
 # write dataframe to csv file without index.
 # Note: we apply rounding when we write the csv float_format='%.2f'
 
-def writeCSV(infile, qualifier, df):
+def writeCSV(infile, qualifier, df, quot):
     outfile = os.path.splitext(infile)[0] + qualifier + os.path.splitext(infile)[1]
     try:
-        df.to_csv(path_or_buf=outfile, sep=';', encoding='latin-1', decimal=",", float_format='%.2f', index=False)
+        df.to_csv(path_or_buf=outfile, sep=';', encoding='latin-1', decimal=",", float_format='%.2f', index=False, quoting=quot)
     except:
         print("Dataframe konnte nicht gespeichert werden {}\n".format(outfile))
         pass
@@ -224,7 +231,9 @@ def printUniqueKonto(df, nameKonto):
 def convertColumnToFloat (df, cName):
 
     print("\tNeuer Datentyp für Spalte {} ist float".format(cName))
-    df[cName] = df[cName].str.replace('.','').str.replace(',','.').astype(float)
+#    df[cName] = df[cName].str.replace('.','').str.replace(',','.').astype(float)
+    df[cName] = df[cName].str.replace('.','', regex=False).str.replace(',','.', regex=False).astype(float)
+
 
 # converting string to integer
 
@@ -653,6 +662,77 @@ def selectReceiptDate(df, start_date, end_date):
     dfp = df.loc[mask].copy()
     return dfp
 
+#
+
+def dailySalesByProduct(df, listOfProducts):
+
+    print ("\n###### Statistik für Top-Produkte für jeden Tag erzeugen:\n")
+
+    grandtotal = 0.0
+    columnNames = ['Produkt', 'Datum', 'Wochentag', 'Umsatz Br.', 'Anzahl']
+    dfs = pd.DataFrame(columns = columnNames)
+    iProducts = np.sort(listOfProducts)
+
+    timestamp = df.index[-1] + dt.timedelta(days=1)
+    end_date  = timestamp.replace(hour=0, minute=0, second=0)
+    timestamp = df.index[0]
+    start_date = timestamp.replace(hour=0, minute=0, second=0)
+    print(f"\tStartdate: {start_date}")
+    print(f"\tEnddate:   {end_date}\n")
+
+    for sdate in daterange(start_date, end_date):
+        edate = sdate + dt.timedelta(days=1)
+        strEndDate = edate.strftime('%Y-%m-%d')
+        strStartDate = sdate.strftime('%Y-%m-%d')
+        df_daily = selectReceiptDate(df, strStartDate, strEndDate)
+
+        for ePro in iProducts:
+            mask = df['Produkt']==ePro # Produkt Name
+            df_ePro = df.loc[mask].copy()
+            nTx = df_ePro['Anzahl'].sum()
+            total = df_ePro['Umsatz Br.'].sum()
+            grandtotal += total
+
+            d = {}
+            d["Produkt"] = ePro
+            d["Datum"] = sdate.strftime('%d.%m.%Y')
+            d["Wochentag"] = sdate.dayofweek # Montag = 0
+            d["Umsatz Br."] = total
+            d["Anzahl"] = nTx
+            dfs = dfs.append(d, ignore_index=True)         #append row to the dataframe
+
+    print(f"Statistik für Top-Produkte wurde erzeugt.\n")
+
+    return dfs, grandtotal
+
+def totalSalesByProduct(df, listOfProducts):
+
+    grandtotal = 0.0
+    columnNames = ['Produkt', 'Umsatz Br.', 'Anzahl']
+    dfs = pd.DataFrame(columns = columnNames)
+    iProducts = np.sort(listOfProducts)
+
+    for ePro in iProducts:
+        mask = df['Produkt']==ePro # Produkt Name
+        df_ePro = df.loc[mask].copy()
+        nTx = df_ePro['Anzahl'].sum()
+        total = df_ePro['Umsatz Br.'].sum()
+        grandtotal += total
+
+        d = {}
+        d["Produkt"] = ePro
+        d["Umsatz Br."] = total
+        d["Anzahl"] = nTx
+        dfs = dfs.append(d, ignore_index=True)         #append row to the dataframe
+
+    return dfs.sort_values(by=['Produkt'], ascending=True), grandtotal
+
+def printSalesByProduct(df, total):
+
+    print("\n###### Verkaufs-Statistik für ausgewählte Produkte\n")
+    print(df)
+    print(f"\n{'Summe':>8} {total:8.2f}")
+
 # Main function using argparse for commandline arguments and options
 # Die Nummer des Wertgutscheins steht in Spalte "Beleginfo - Inhalt 6"
 # Dies gilt sowohl bei Verkauf eines Gutscheins als auch bei Einlösung
@@ -676,6 +756,9 @@ def main():
         required=False, action='store_true', default=False)
     parser.add_argument('-v','--verbose', help='Weitere Information ausgeben: Zusätzlich CSV Datei mit Transaktionen schreiben',
         required=False, action='store_true', default=False)
+    parser.add_argument('-s','--statistics', help='Analyse für ausgewählte Produkte erzeugen.',
+        required=False, action='store_true', default=False)
+
 
     args = parser.parse_args()
 
@@ -695,7 +778,7 @@ def main():
         dfp = preprocessDataframe(df)
         dfpp = selectReceiptDate(dfp, start_date, end_date)
 
-    writeCSV(args.file, '_' + sxImportProSaldo  + heading, dfpp)
+    writeCSV(args.file, '_' + sxImportProSaldo  + heading, dfpp, csv.QUOTE_NONNUMERIC)
 
     print("\n###### Kontenrahmen für Sammelbuchungen Dienstleistungen\n")
     printAccountDict(dCAService, "Erlöse Dienstleistungen")
@@ -734,10 +817,16 @@ def main():
     else:
         dfc, dfi = collectivePostings(args.text, heading, dfpp, verbose=True)
 
-    writeCSV(args.file, '_' + sxCollectivePostings + heading, dfc)
+    writeCSV(args.file, '_' + sxCollectivePostings + heading, dfc, csv.QUOTE_NONNUMERIC)
     if args.verbose:
-        writeCSV(args.file, '_' + sxTransactions + heading, dfi)
+        writeCSV(args.file, '_' + sxTransactions + heading, dfi, csv.QUOTE_NONNUMERIC)
 
+    if args.statistics:
+        dfstat, total = totalSalesByProduct(dfpp, topProducts)
+        printSalesByProduct(dfstat, total)
+        if (args.daily):
+            dfstat, total = dailySalesByProduct(dfpp, topProducts)
+        writeCSV(args.file, '_SalesByProduct' + heading, dfstat, csv.QUOTE_NONE)
 
     print("\n###### Programm wurde normal beendet.\n")
 
