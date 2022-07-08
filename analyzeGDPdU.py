@@ -7,7 +7,7 @@ import numpy as np
 import csv # QUOTE_MINIMAL, QUOTE_ALL, QUOTE_NONE, and QUOTE_NONNUMERIC
 
 
-programVersion = '1.9'
+programVersion = '1.9.1'
 lastModified = '08-07-2022'
 
 #
@@ -668,7 +668,6 @@ def dailySalesByProduct(df, listOfProducts):
 
     print ("\n###### Statistik für Top-Produkte für jeden Tag erzeugen:\n")
 
-    grandtotal = 0.0
     columnNames = ['Produkt', 'Datum', 'Wochentag', 'Umsatz Br.', 'Anzahl']
     dfs = pd.DataFrame(columns = columnNames)
     iProducts = np.sort(listOfProducts)
@@ -687,11 +686,10 @@ def dailySalesByProduct(df, listOfProducts):
         df_daily = selectReceiptDate(df, strStartDate, strEndDate)
 
         for ePro in iProducts:
-            mask = df['Produkt']==ePro # Produkt Name
-            df_ePro = df.loc[mask].copy()
+            mask = df_daily['Produkt']==ePro # Produkt Name
+            df_ePro = df_daily.loc[mask].copy()
             nTx = df_ePro['Anzahl'].sum()
             total = df_ePro['Umsatz Br.'].sum()
-            grandtotal += total
 
             d = {}
             d["Produkt"] = ePro
@@ -703,7 +701,7 @@ def dailySalesByProduct(df, listOfProducts):
 
     print(f"Statistik für Top-Produkte wurde erzeugt.\n")
 
-    return dfs, grandtotal
+    return dfs
 
 def totalSalesByProduct(df, listOfProducts):
 
@@ -824,8 +822,7 @@ def main():
     if args.statistics:
         dfstat, total = totalSalesByProduct(dfpp, topProducts)
         printSalesByProduct(dfstat, total)
-        if (args.daily):
-            dfstat, total = dailySalesByProduct(dfpp, topProducts)
+        dfstat = dailySalesByProduct(dfpp, topProducts)
         writeCSV(args.file, '_SalesByProduct' + heading, dfstat, csv.QUOTE_NONE)
 
     print("\n###### Programm wurde normal beendet.\n")
