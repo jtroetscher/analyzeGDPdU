@@ -7,19 +7,20 @@ import numpy as np
 import csv # QUOTE_MINIMAL, QUOTE_ALL, QUOTE_NONE, and QUOTE_NONNUMERIC
 
 
-programVersion = '1.9.1'
-lastModified = '08-07-2022'
+programVersion = '1.9.2'
+lastModified = '09-07-2022'
 
 #
 # PURPOSE: autocomplete GDPdU to allow import in MonkeyOffice
+#          generate sales-statistics
 #
 # AUTHOR: Jens Troetscher, JTTechConsult GmbH
 #
-# Note: The home dir ~/Scripts/Github-Private-Repositories/analyzeGDPdU/
+# Note: The home dir ~/Scripts/Github/analyzeGDPdU/
 # is not part of our $PATH for executing shell scripts!
-# don't forget to copy the final version to ~/Scripts
+# Once you're done editing in ~/Scripts copy the final version to ~/Github/analyzeGDPdU/
 #
-# cp ~/Scripts/Github-Private-Repositories/analyzeGDPdU/analyzeGDPdU.py ~/Scripts/analyzeGDPdU.py
+# cp ~/Scripts/analyzeGDPdU.py ~/Github/analyzeGDPdU/analyzeGDPdU.py
 #
 # DISCLAIMER:
 # THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -127,6 +128,8 @@ dCAGoods = {
 # Selection criteria: column 'Konto' must match
 
 topProducts = ['Erwachsene', 'Feierabend/2 Std.', 'Studenten' ]
+
+topCoupons = ['10er Erw.', '20er Erw.',  '10er Spezial', '20er Spezial', '50er Spezial' ]
 
 # read csv file containing all GDPdU output
 # we read required columns only
@@ -822,7 +825,9 @@ def main():
     if args.statistics:
         dfstat, total = totalSalesByProduct(dfpp, topProducts)
         printSalesByProduct(dfstat, total)
-        dfstat = dailySalesByProduct(dfpp, topProducts)
+        dfstat, total = totalSalesByProduct(dfpp, topCoupons)
+        printSalesByProduct(dfstat, total)
+        dfstat = dailySalesByProduct(dfpp, topProducts + topCoupons)
         writeCSV(args.file, '_SalesByProduct' + heading, dfstat, csv.QUOTE_NONE)
 
     print("\n###### Programm wurde normal beendet.\n")
